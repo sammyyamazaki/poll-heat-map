@@ -82,10 +82,11 @@
   <script>
     const socket = io();
     const map = L.map('map').setView([51.4566, 7.0123], 12);
-    L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://stamen.com">Stamen</a> & OpenStreetMap contributors',
-      maxZoom: 20
-    }).addTo(map);
+   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap & CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
 
     let selectedSize = 2;
     document.querySelectorAll('.circle-choice').forEach(el => {
