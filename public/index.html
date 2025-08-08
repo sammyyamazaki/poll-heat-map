@@ -66,7 +66,9 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const socket = io();
-    const map = L.map('map').setView([51.1657, 10.4515], 6);
+    //const map = L.map('map').setView([51.1657, 10.4515], 6);
+    const map = L.map('map').setView([51.4566, 7.0123], 12); //Essen
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
     let selectedSize = 2;
