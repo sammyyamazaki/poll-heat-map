@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Einfluss markieren</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body { height: 100%; margin: 0; font-family: sans-serif; }
+    #map { height: 100%; }
+    .control-box {
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      z-index: 1000; background: white; padding: 10px 14px; border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3); display: flex; gap: 14px; align-items: center;
+    }
+    .circle-choice-group {
+      display: flex; gap: 10px;
+    }
+    .circle-choice {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 3px solid #444; background-color: #eee;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: 0.2s;
+    }
+    .circle-choice.active {
+      border-color: #ef4444;
+      background-color: #fecaca;
+    }
+    .circle-choice[data-size="1"] { width: 20px; height: 20px; }
+    .circle-choice[data-size="2"] { width: 35px; height: 35px; }
+    .circle-choice[data-size="3"] { width: 55px; height: 55px; }
+    #address { padding: 6px; font-size: 14px; width: 200px; }
+    #searchBtn { padding: 6px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="control-box">
+    <input id="address" type="text" placeholder="Adresse..." />
+    <button id="searchBtn">Suchen</button>
+    <div class="circle-choice-group" id="sizeSelector">
+      <div class="circle-choice" data-size="1" title="Klein"></div>
+      <div class="circle-choice active" data-size="2" title="Mittel"></div>
+      <div class="circle-choice" data-size="3" title="Groß"></div>
+    </div>
+  </div>
+  <div id="map"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const socket = io();
+    const map = L.map('map').setView([51.1657, 10.4515], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+    let selectedSize = 2;
+    document.querySelectorAll('.circle-choice').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.circle-choice').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        selectedSize = parseInt(el.dataset.size);
+      });
+    });
+
+    function placePin(lat, lon) {
+      socket.emit('newPin', { lat, lon, size: selectedSize });
+      L.circleMarker([lat, lon], { radius: selectedSize * 5, color: 'red', fillOpacity: 0.5 }).addTo(map);
+    }
+
+    document.getElementById('searchBtn').onclick = async () => {
+      const q = document.getElementById('address').value;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url); const data = await res.json();
+      if (data.length > 0) {
+        const { lat, lon } = data[0];
+        map.setView([lat, lon], 14);
+        placePin(parseFloat(lat), parseFloat(lon));
+      }
+    };
+
+    map.on('click', e => placePin(e.latlng.lat, e.latlng.lng));
+  </script>
+</body>
+</html>
