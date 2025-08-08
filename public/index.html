@@ -49,6 +49,19 @@
     .circle-choice[data-size="3"] { width: 55px; height: 55px; }
     #address { padding: 6px; font-size: 14px; width: 200px; }
     #searchBtn { padding: 6px; font-size: 14px; }
+    .footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: #000;
+        color: #fff;
+        text-align: center;
+        padding: 6px 0;
+        font-size: 14px;
+        font-family: sans-serif;
+        z-index: 1001;
+    }
   </style>
 </head>
 <body>
@@ -98,5 +111,6 @@
 
     map.on('click', e => placePin(e.latlng.lat, e.latlng.lng));
   </script>
+  <footer class="footer">EFG Altendorf</footer>
 </body>
 </html>
