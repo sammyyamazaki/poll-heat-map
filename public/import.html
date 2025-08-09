@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Import-Ansicht</title>
+  <title>Import-Ansicht (Drag & Drop, Multi-Datei)</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
@@ -14,15 +14,30 @@
       position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
       background: rgba(255,255,255,0.95); padding: 8px 10px; border-radius: 10px; z-index: 999;
       display: flex; gap: 10px; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-      flex-wrap: wrap;
+      flex-wrap: wrap; max-width: 95vw;
     }
     .badge { font-size: 12px; background:#eee; padding:2px 6px; border-radius:999px; }
     select, button, input[type="file"] { padding: 6px; }
+    .dropzone {
+      position: absolute; left: 10px; top: 10px; z-index: 998;
+      background: rgba(255,255,255,0.85); border: 2px dashed #9ca3af; border-radius: 10px;
+      padding: 10px 12px; max-width: 260px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      transition: border-color .2s, background .2s;
+    }
+    .dropzone.highlight { border-color: #2563eb; background: rgba(219,234,254,0.9); }
+    .filelist { font-size: 12px; margin-top: 6px; max-height: 120px; overflow:auto; }
+    .filelist div { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+    @media (max-width: 700px) {
+      .controls { gap: 8px; }
+      .dropzone { position: static; max-width: none; }
+    }
   </style>
 </head>
 <body>
   <div class="controls">
-    <input type="file" id="fileInput" accept=".geojson,.json,.csv,.kml,.gpx" />
+    <label>Dateien laden:
+      <input type="file" id="fileInput" accept=".geojson,.json,.csv,.kml,.gpx" multiple />
+    </label>
     <label>Basemap:
       <select id="basemap">
         <option value="positron" selected>CartoDB Positron</option>
@@ -39,6 +54,13 @@
     <span class="badge" id="count">0 Pins</span>
     <button id="fitBtn">Fit to Pins</button>
   </div>
+
+  <div class="dropzone" id="dropzone">
+    <strong>Drag & Drop Import</strong><br/>
+    GeoJSON / CSV / KML / GPX hierher ziehen<br/>
+    <div class="filelist" id="filelist"></div>
+  </div>
+
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -105,34 +127,51 @@
 
     // ---- Import handling ----
     document.getElementById('fileInput').addEventListener('change', (e) => {
-      const f = e.target.files[0];
-      if (!f) return;
-      const name = f.name.toLowerCase();
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const text = reader.result;
-          if (name.endsWith('.geojson') || name.endsWith('.json')) {
-            importGeoJSON(JSON.parse(text));
-          } else if (name.endsWith('.csv')) {
-            importCSV(text);
-          } else if (name.endsWith('.kml')) {
-            importKML(text);
-          } else if (name.endsWith('.gpx')) {
-            importGPX(text);
-          } else {
-            alert('Unbekanntes Format. Bitte GeoJSON, CSV, KML oder GPX wählen.');
-            return;
-          }
-          renderAll();
-          fitToPins();
-        } catch (err) {
-          console.error(err);
-          alert('Beim Import ist ein Fehler aufgetreten.');
-        }
-      };
-      reader.readAsText(f);
+      if (!e.target.files || !e.target.files.length) return;
+      handleFiles(Array.from(e.target.files));
     });
+
+    const dropzone = document.getElementById('dropzone');
+    const filelist = document.getElementById('filelist');
+
+    ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation(); dropzone.classList.add('highlight');
+    }));
+    ['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('highlight');
+    }));
+    dropzone.addEventListener('drop', (e) => {
+      const files = Array.from(e.dataTransfer.files || []);
+      if (files.length) handleFiles(files);
+    });
+
+    async function handleFiles(files) {
+      // Process sequentially to keep UI responsive & summarize
+      for (const f of files) {
+        const n = f.name;
+        const ext = n.toLowerCase().split('.').pop();
+        const text = await f.text();
+        const before = pins.length;
+        try {
+          if (ext === 'geojson' || ext === 'json') importGeoJSON(JSON.parse(text));
+          else if (ext === 'csv') importCSV(text);
+          else if (ext === 'kml') importKML(text);
+          else if (ext === 'gpx') importGPX(text);
+          else continue;
+          const added = pins.length - before;
+          const item = document.createElement('div');
+          item.textContent = `+${added} • ${n}`;
+          filelist.appendChild(item);
+        } catch (err) {
+          console.error('Fehler beim Import', n, err);
+          const item = document.createElement('div');
+          item.textContent = `Fehler • ${n}`;
+          filelist.appendChild(item);
+        }
+      }
+      renderAll();
+      fitToPins();
+    }
 
     function addPin(lat, lon, size) {
       if (!isFinite(lat) || !isFinite(lon)) return;
@@ -141,13 +180,20 @@
 
     // GeoJSON: FeatureCollection mit Point-Features; size in properties.size
     function importGeoJSON(geo) {
-      if (!geo || geo.type !== 'FeatureCollection' || !Array.isArray(geo.features)) return;
-      geo.features.forEach(feat => {
-        if (!feat || !feat.geometry || feat.geometry.type !== 'Point') return;
-        const coords = feat.geometry.coordinates; // [lon, lat]
-        const size = feat.properties && feat.properties.size ? +feat.properties.size : 2;
-        if (Array.isArray(coords) && coords.length >= 2) addPin(coords[1], coords[0], size);
-      });
+      if (!geo) return;
+      if (geo.type === 'FeatureCollection' && Array.isArray(geo.features)) {
+        geo.features.forEach(feat => {
+          if (!feat || !feat.geometry) return;
+          if (feat.geometry.type === 'Point') {
+            const c = feat.geometry.coordinates; // [lon, lat]
+            const size = feat.properties && feat.properties.size ? +feat.properties.size : 2;
+            if (Array.isArray(c) && c.length >= 2) addPin(c[1], c[0], size);
+          }
+        });
+      } else if (geo.type === 'Feature' && geo.geometry && geo.geometry.type === 'Point') {
+        const c = geo.geometry.coordinates; const size = geo.properties?.size || 2;
+        if (Array.isArray(c) && c.length >= 2) addPin(c[1], c[0], size);
+      }
     }
 
     // CSV: lat,lon,size,timestamp (Header erwartet)
@@ -158,7 +204,9 @@
       const latIdx = header.indexOf('lat');
       const lonIdx = header.indexOf('lon');
       const sizeIdx = header.indexOf('size');
+      if (latIdx < 0 || lonIdx < 0) return;
       for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
         const cols = lines[i].split(',').map(c => c.trim());
         const lat = parseFloat(cols[latIdx]);
         const lon = parseFloat(cols[lonIdx]);
@@ -198,7 +246,7 @@
         const lon = parseFloat(w.getAttribute('lon'));
         let size = 2;
         const name = w.getElementsByTagName('name')[0];
-        if (name && /^size:\s*\d+/i.test(name.textContent)) {
+        if (name && /size:\s*\d+/i.test(name.textContent)) {
           const m = name.textContent.match(/size:\s*(\d+)/i);
           if (m) size = parseFloat(m[1]);
         }
