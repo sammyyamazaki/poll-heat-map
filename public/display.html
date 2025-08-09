@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Leinwand (Zoom-stabil)</title>
+  <title>Leinwand (Heatmap feinabgestimmt)</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
@@ -17,8 +17,11 @@
       flex-wrap: wrap;
     }
     .badge { font-size: 12px; background:#eee; padding:2px 6px; border-radius:999px; }
-    select, button { padding: 6px; }
+    select, button, input[type="range"] { padding: 6px; }
     .export-group { display: inline-flex; gap: 6px; align-items: center; }
+    .range-wrap { display: inline-flex; align-items: center; gap: 6px; }
+    .range-wrap label { font-size: 12px; opacity: .8; }
+    .range-wrap input { width: 120px; }
     @media (max-width: 700px) {
       .controls { gap: 8px; }
       .export-group select { max-width: 140px; }
@@ -40,6 +43,10 @@
     <label><input type="radio" name="mode" value="heat" checked> Heatmap</label>
     <label><input type="radio" name="mode" value="cluster"> Cluster</label>
     <label><input type="radio" name="mode" value="both"> Beides</label>
+    <div class="range-wrap">
+      <label for="intensity">Intensität</label>
+      <input id="intensity" type="range" min="0.5" max="2" value="1" step="0.1">
+    </div>
     <span class="badge" id="count">0 Pins</span>
     <button id="fitBtn">Fit to Pins</button>
     <div class="export-group">
@@ -78,11 +85,14 @@
       if (basemaps[val]) { map.removeLayer(currentBase); currentBase = basemaps[val].addTo(map); }
     });
 
-    // ---- Zoom-stable Heatmap ----
-    // Base radius in meters (visual influence zone per pin in heat)
-    const HEAT_RADIUS_METERS = 800;
-    const HEAT_BLUR_RATIO = 0.6;
-    const heat = L.heatLayer([], { radius: 25, blur: 15, maxZoom: 16, minOpacity: 0.3, max: 5 });
+    // ---- Heatmap: meter-based radius with clamping + adjustable intensity ----
+    const HEAT_BASE_METERS = 350;            // kleinerer Basisradius
+    const HEAT_BLUR_RATIO = 0.7;
+    const HEAT_MIN_PX = 15, HEAT_MAX_PX = 50; // harte Grenzen gegen Artefakte
+    const sizeWeight = {1: 0.7, 2: 1.0, 3: 1.5};
+    let intensityFactor = 1.0;
+
+    const heat = L.heatLayer([], { radius: 25, blur: 15, maxZoom: 18, minOpacity: 0.25, max: 2 });
 
     function metersToPixels(m, lat, zoom) {
       const mpp = 156543.03392 * Math.cos(lat * Math.PI/180) / Math.pow(2, zoom);
@@ -91,21 +101,19 @@
     function updateHeatRadius() {
       const z = map.getZoom();
       const lat = map.getCenter().lat;
-      const rPx = Math.max(5, Math.round(metersToPixels(HEAT_RADIUS_METERS, lat, z)));
+      let rPx = Math.round(metersToPixels(HEAT_BASE_METERS, lat, z));
+      rPx = Math.max(HEAT_MIN_PX, Math.min(HEAT_MAX_PX, rPx));
       heat.setOptions({ radius: rPx, blur: Math.round(rPx * HEAT_BLUR_RATIO) });
     }
-
-    // ---- Meter-based marker sizing (with cluster) ----
-    const SIZE_TO_METERS = { 1: 150, 2: 300, 3: 600 }; // visual diameter per size
-    function markerPxFor(p) {
-      const lat = map.getCenter().lat;
-      const z = map.getZoom();
-      const meters = SIZE_TO_METERS[Math.max(1, Math.min(3, p.size||2))] || 300;
-      const px = Math.round(metersToPixels(meters, lat, z));
-      return Math.max(6, Math.min(px, 40)); // clamp to keep clusters readable
+    function recomputeHeatPoints() {
+      const pts = pins.map(p => [p.lat, p.lon, (sizeWeight[p.size] || 1) * intensityFactor]);
+      heat.setLatLngs(pts);
     }
+
+    // ---- Marker: zurück zu fixen Pixelgrößen (= bewährte Darstellung in Clustern) ----
     function pinToMarker(p) {
-      const px = markerPxFor(p);
+      const s = Math.max(1, Math.min(5, p.size || 2));
+      const px = s * 6; // wie vorher
       return L.marker([p.lat, p.lon], {
         icon: L.divIcon({
           className: 'pin',
@@ -114,7 +122,6 @@
         })
       });
     }
-
     const clusters = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 60 });
 
     const pins = [];
@@ -122,9 +129,7 @@
     function updateCount() { countEl.textContent = pins.length + ' Pins'; }
 
     function renderAll() {
-      // Heat
-      heat.setLatLngs(pins.map(p => [p.lat, p.lon, Math.max(1, Math.min(5, p.size))]));
-      // Clusters
+      recomputeHeatPoints();
       clusters.clearLayers();
       clusters.addLayers(pins.map(pinToMarker));
       applyMode(currentMode());
@@ -134,7 +139,7 @@
 
     function addPin(p) {
       pins.push(p);
-      heat.addLatLng([p.lat, p.lon, Math.max(1, Math.min(5, p.size))]);
+      recomputeHeatPoints();
       clusters.addLayer(pinToMarker(p));
       updateCount();
       updateHeatRadius();
@@ -183,13 +188,15 @@
     document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', () => applyMode(currentMode())));
     applyMode('heat');
 
-    // Recompute on zoom/move to keep visuals stable
+    // Intensity slider
+    document.getElementById('intensity').addEventListener('input', (e) => {
+      intensityFactor = parseFloat(e.target.value || '1');
+      recomputeHeatPoints();
+    });
+
+    // Keep visuals stable enough
     map.on('zoomend moveend', () => {
       updateHeatRadius();
-      if (map.hasLayer(clusters)) {
-        clusters.clearLayers();
-        clusters.addLayers(pins.map(pinToMarker));
-      }
     });
   </script>
 </body>
