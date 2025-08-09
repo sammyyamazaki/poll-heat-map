@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Import-Ansicht</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <style>
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    #map { height: 100%; }
+    .controls {
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(255,255,255,0.95); padding: 8px 10px; border-radius: 10px; z-index: 999;
+      display: flex; gap: 10px; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      flex-wrap: wrap;
+    }
+    .badge { font-size: 12px; background:#eee; padding:2px 6px; border-radius:999px; }
+    select, button, input[type="file"] { padding: 6px; }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <input type="file" id="fileInput" accept=".geojson,.json,.csv,.kml,.gpx" />
+    <label>Basemap:
+      <select id="basemap">
+        <option value="positron" selected>CartoDB Positron</option>
+        <option value="voyager">CartoDB Voyager</option>
+        <option value="osmde">OSM DE</option>
+        <option value="osmstd">OSM Standard</option>
+        <option value="tonerlite">Stamen Toner Lite</option>
+      </select>
+    </label>
+    Ansicht:
+    <label><input type="radio" name="mode" value="heat" checked> Heatmap</label>
+    <label><input type="radio" name="mode" value="cluster"> Cluster</label>
+    <label><input type="radio" name="mode" value="both"> Beides</label>
+    <span class="badge" id="count">0 Pins</span>
+    <button id="fitBtn">Fit to Pins</button>
+  </div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script>
+    const map = L.map('map').setView([51.4566, 7.0123], 12);
+
+    // Basemaps
+    const basemaps = {
+      positron: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap & CARTO', subdomains: 'abcd', maxZoom: 20 }),
+      voyager:  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap & CARTO', subdomains: 'abcd', maxZoom: 20 }),
+      osmde:    L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }),
+      osmstd:   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }),
+      tonerlite:L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png', { attribution: '&copy; Stamen & OpenStreetMap', maxZoom: 20 })
+    };
+    let currentBase = basemaps.positron.addTo(map);
+    document.getElementById('basemap').addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (basemaps[val]) { map.removeLayer(currentBase); currentBase = basemaps[val].addTo(map); }
+    });
+
+    // Overlays
+    const heat = L.heatLayer([], { radius: 40, blur: 25, maxZoom: 16, minOpacity: 0.3 });
+    const clusters = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 60 });
+
+    const pins = []; // {lat, lon, size}
+    const countEl = document.getElementById('count');
+    function updateCount() { countEl.textContent = pins.length + ' Pins'; }
+
+    function pinToMarker(p) {
+      const s = Math.max(1, Math.min(5, p.size || 2));
+      return L.marker([p.lat, p.lon], {
+        icon: L.divIcon({ className: 'pin',
+          html: '<div style="width:'+ (s*6) +'px;height:'+ (s*6) +'px;border-radius:50%;border:2px solid #ef4444;background:rgba(239,68,68,0.5)"></div>',
+          iconSize: [s*6, s*6], iconAnchor: [s*3, s*3] })
+      });
+    }
+
+    function renderAll() {
+      heat.setLatLngs(pins.map(p => [p.lat, p.lon, Math.max(1, Math.min(5, p.size))]));
+      clusters.clearLayers();
+      clusters.addLayers(pins.map(pinToMarker));
+      applyMode(currentMode());
+      updateCount();
+    }
+
+    function currentMode() { return document.querySelector('input[name="mode"]:checked').value; }
+    function applyMode(mode) {
+      map.removeLayer(heat);
+      map.removeLayer(clusters);
+      if (mode === 'heat') heat.addTo(map);
+      else if (mode === 'cluster') clusters.addTo(map);
+      else { heat.addTo(map); clusters.addTo(map); }
+    }
+    document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', () => applyMode(currentMode())));
+
+    function fitToPins() {
+      if (pins.length === 0) return;
+      const latlngs = pins.map(p => [p.lat, p.lon]);
+      map.fitBounds(latlngs, { padding: [40, 40] });
+    }
+    document.getElementById('fitBtn').addEventListener('click', fitToPins);
+
+    // ---- Import handling ----
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const name = f.name.toLowerCase();
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const text = reader.result;
+          if (name.endsWith('.geojson') || name.endsWith('.json')) {
+            importGeoJSON(JSON.parse(text));
+          } else if (name.endsWith('.csv')) {
+            importCSV(text);
+          } else if (name.endsWith('.kml')) {
+            importKML(text);
+          } else if (name.endsWith('.gpx')) {
+            importGPX(text);
+          } else {
+            alert('Unbekanntes Format. Bitte GeoJSON, CSV, KML oder GPX wählen.');
+            return;
+          }
+          renderAll();
+          fitToPins();
+        } catch (err) {
+          console.error(err);
+          alert('Beim Import ist ein Fehler aufgetreten.');
+        }
+      };
+      reader.readAsText(f);
+    });
+
+    function addPin(lat, lon, size) {
+      if (!isFinite(lat) || !isFinite(lon)) return;
+      pins.push({ lat: +lat, lon: +lon, size: size ? +size : 2 });
+    }
+
+    // GeoJSON: FeatureCollection mit Point-Features; size in properties.size
+    function importGeoJSON(geo) {
+      if (!geo || geo.type !== 'FeatureCollection' || !Array.isArray(geo.features)) return;
+      geo.features.forEach(feat => {
+        if (!feat || !feat.geometry || feat.geometry.type !== 'Point') return;
+        const coords = feat.geometry.coordinates; // [lon, lat]
+        const size = feat.properties && feat.properties.size ? +feat.properties.size : 2;
+        if (Array.isArray(coords) && coords.length >= 2) addPin(coords[1], coords[0], size);
+      });
+    }
+
+    // CSV: lat,lon,size,timestamp (Header erwartet)
+    function importCSV(text) {
+      const lines = text.trim().split(/\r?\n/);
+      if (lines.length < 2) return;
+      const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const latIdx = header.indexOf('lat');
+      const lonIdx = header.indexOf('lon');
+      const sizeIdx = header.indexOf('size');
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim());
+        const lat = parseFloat(cols[latIdx]);
+        const lon = parseFloat(cols[lonIdx]);
+        const size = sizeIdx >= 0 ? parseFloat(cols[sizeIdx]) : 2;
+        addPin(lat, lon, size);
+      }
+    }
+
+    // KML: Placemarks with Point/coordinates lon,lat,0 ; size in ExtendedData/Data[@name="size"]
+    function importKML(xmlText) {
+      const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+      const placemarks = doc.getElementsByTagName('Placemark');
+      for (const pm of placemarks) {
+        const coordsNode = pm.getElementsByTagName('coordinates')[0];
+        if (!coordsNode) continue;
+        const parts = coordsNode.textContent.trim().split(',');
+        const lon = parseFloat(parts[0]);
+        const lat = parseFloat(parts[1]);
+        let size = 2;
+        const dataNodes = pm.getElementsByTagName('Data');
+        for (const dn of dataNodes) {
+          if (dn.getAttribute('name') === 'size') {
+            const valNode = dn.getElementsByTagName('value')[0];
+            if (valNode) size = parseFloat(valNode.textContent);
+          }
+        }
+        addPin(lat, lon, size);
+      }
+    }
+
+    // GPX: <wpt lat="" lon=""><name>size:3</name></wpt>
+    function importGPX(xmlText) {
+      const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+      const wpts = doc.getElementsByTagName('wpt');
+      for (const w of wpts) {
+        const lat = parseFloat(w.getAttribute('lat'));
+        const lon = parseFloat(w.getAttribute('lon'));
+        let size = 2;
+        const name = w.getElementsByTagName('name')[0];
+        if (name && /^size:\s*\d+/i.test(name.textContent)) {
+          const m = name.textContent.match(/size:\s*(\d+)/i);
+          if (m) size = parseFloat(m[1]);
+        }
+        addPin(lat, lon, size);
+      }
+    }
+
+    // Initial mode
+    applyMode('heat');
+  </script>
+</body>
+</html>
