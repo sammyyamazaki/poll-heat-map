@@ -6,25 +6,32 @@
   <title>Einfluss markieren</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    html, body { height: 100%; margin: 0; font-family: sans-serif; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     #map { height: 100%; }
-    .control-box { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000; background: #f0f0f0; padding: 10px 14px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
-    #address { padding: 6px; font-size: 14px; width: 200px; background: #fff; border: 1px solid #555; border-radius: 4px; }
-    #searchBtn { padding: 6px; font-size: 14px; background: #333; color: #fff; border: 1px solid #444; border-radius: 4px; cursor: pointer; }
+    .control-box { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000; background: #f0f0f0; padding: 10px 14px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    #address { padding: 6px; font-size: 14px; width: 220px; background: #fff; border: 1px solid #bbb; border-radius: 4px; }
+    #searchBtn { padding: 6px 10px; font-size: 14px; background: #333; color: #fff; border: 1px solid #444; border-radius: 4px; cursor: pointer; }
     #searchBtn:hover { background: #555; }
     .circle-choice-group { display: flex; gap: 10px; align-items: center; }
     .circle-choice { display: flex; align-items: center; justify-content: center; border: 3px solid #ccc; background-color: #ddd; cursor: pointer; transition: 0.2s; border-radius: 50%; }
     .circle-choice.active { border-color: #ff5555; background-color: #d44; }
-    .circle-choice[data-size="1"] { width: 20px; height: 20px; }
-    .circle-choice[data-size="2"] { width: 35px; height: 35px; }
-    .circle-choice[data-size="3"] { width: 55px; height: 55px; }
+    .circle-choice[data-size="1"] { width: 22px; height: 22px; }
+    .circle-choice[data-size="2"] { width: 36px; height: 36px; }
+    .circle-choice[data-size="3"] { width: 58px; height: 58px; }
     @media (max-width: 600px) { .control-box { flex-direction: column; align-items: stretch; } #address, #searchBtn { width: 100%; } .circle-choice-group { justify-content: center; } }
-    .footer { position: fixed; bottom: 0; left: 0; width: 100%; background: #000; color: #fff; text-align: center; padding: 6px 0; font-size: 14px; z-index: 1001; }
+    .suggest { position: absolute; top: 54px; left: 50%; transform: translateX(-50%); z-index: 1001; width: 260px; max-height: 240px; overflow: auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+    .suggest.hidden { display: none; }
+    .suggest-item { padding: 8px 10px; cursor: pointer; }
+    .suggest-item:hover { background: #f3f4f6; }
+    .splash { position: fixed; inset: 0; background: #000; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; z-index: 2000; opacity: 1; transition: opacity .5s ease; }
+    .splash.hidden { opacity: 0; pointer-events: none; }
+    .splash img { max-width: 220px; height: auto; }
+    .splash .claim { font-size: 16px; opacity: .85; }
   </style>
 </head>
 <body>
   <div class="control-box">
-    <input id="address" type="text" placeholder="Adresse..." />
+    <input id="address" type="text" placeholder="Adresse..." autocomplete="off" />
     <button id="searchBtn">Suchen</button>
     <div class="circle-choice-group" id="sizeSelector">
       <div class="circle-choice" data-size="1" title="Klein"></div>
@@ -33,18 +40,88 @@
     </div>
   </div>
   <div id="map"></div>
-  <footer class="footer">EFG Altendorf</footer>
+  <div id="suggest" class="suggest hidden"></div>
+  <div id="splash" class="splash">
+    <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
+    <div class="claim">Willkommen! Tippe irgendwo, um zu starten…</div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const socket = io();
     const map = L.map('map').setView([51.4566, 7.0123], 12);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap & CARTO', subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+
+    const splash = document.getElementById('splash');
+    function hideSplash(){ splash.classList.add('hidden'); setTimeout(() => splash.remove(), 600); }
+    setTimeout(hideSplash, 2000);
+    splash.addEventListener('click', hideSplash);
+    splash.addEventListener('touchstart', hideSplash, { passive: true });
+
     let selectedSize = 2;
-    document.querySelectorAll('.circle-choice').forEach(el => { el.addEventListener('click', () => { document.querySelectorAll('.circle-choice').forEach(c => c.classList.remove('active')); el.classList.add('active'); selectedSize = parseInt(el.dataset.size); }); });
-    function placePin(lat, lon) { socket.emit('newPin', { lat, lon, size: selectedSize }); L.circleMarker([lat, lon], { radius: selectedSize * 5, color: 'red', fillColor: '#f88', fillOpacity: 0.5, weight: 2 }).addTo(map); }
-    document.getElementById('searchBtn').onclick = async () => { const q = document.getElementById('address').value; const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`; const res = await fetch(url); const data = await res.json(); if (data.length > 0) { const { lat, lon } = data[0]; map.setView([lat, lon], 14); placePin(parseFloat(lat), parseFloat(lon)); } };
+    document.querySelectorAll('.circle-choice').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.circle-choice').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        selectedSize = parseInt(el.dataset.size);
+      });
+    });
+
+    let lastPinAt = 0;
+    function placePin(lat, lon) {
+      const now = Date.now();
+      if (now - lastPinAt < 500) return;
+      lastPinAt = now;
+      socket.emit('newPin', { lat, lon, size: selectedSize });
+      L.circleMarker([lat, lon], { radius: selectedSize * 5, color: 'red', fillColor: '#f88', fillOpacity: 0.5, weight: 2 }).addTo(map);
+    }
+
+    document.getElementById('searchBtn').onclick = async () => {
+      const q = document.getElementById('address').value.trim();
+      if (!q) return;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'de' }});
+      const data = await res.json();
+      if (data.length > 0) { const { lat, lon } = data[0]; map.setView([+lat, +lon], 14); placePin(+lat, +lon); }
+    };
+
+    const suggestBox = document.getElementById('suggest');
+    let suggestTimer = null;
+    document.getElementById('address').addEventListener('input', (e) => {
+      const q = e.target.value.trim();
+      clearTimeout(suggestTimer);
+      if (!q) { suggestBox.classList.add('hidden'); suggestBox.innerHTML=''; return; }
+      suggestTimer = setTimeout(async () => {
+        try {
+          const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=0&limit=5`;
+          const res = await fetch(url, { headers: { 'Accept-Language': 'de' }});
+          const list = await res.json();
+          if (!Array.isArray(list) || list.length === 0) { suggestBox.classList.add('hidden'); suggestBox.innerHTML=''; return; }
+          suggestBox.innerHTML = list.map(item => `<div class="suggest-item" data-lat="${item.lat}" data-lon="${item.lon}">${(item.display_name || '').replace(/, Deutschland$/, '')}</div>`).join('');
+          suggestBox.classList.remove('hidden');
+        } catch { suggestBox.classList.add('hidden'); suggestBox.innerHTML=''; }
+      }, 300);
+    });
+
+    suggestBox.addEventListener('click', (e) => {
+      const el = e.target.closest('.suggest-item');
+      if (!el) return;
+      const lat = parseFloat(el.dataset.lat);
+      const lon = parseFloat(el.dataset.lon);
+      map.setView([lat, lon], 14);
+      placePin(lat, lon);
+      suggestBox.classList.add('hidden');
+      suggestBox.innerHTML='';
+      document.getElementById('address').value='';
+    });
+
     map.on('click', e => placePin(e.latlng.lat, e.latlng.lng));
+
+    socket.on('pinRejected', ({ reason }) => {
+      if (reason === 'too_fast') console.warn('Bitte kurz warten (Entprellung).');
+      else if (reason === 'rate_limit') alert('Zu viele Einträge in kurzer Zeit. Bitte kurz warten.');
+    });
   </script>
 </body>
 </html>
