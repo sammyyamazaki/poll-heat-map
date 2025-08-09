@@ -8,71 +8,68 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
   <style>
-    html, body { height: 100%; margin: 0; }
+    html, body { height: 100%; margin: 0; font-family: sans-serif; }
     #map { height: 100%; }
-    .ctrl {
-      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-      background: #fff; padding: 10px; border-radius: 8px; z-index: 999;
-      display: flex; gap: 10px; align-items:center; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      font-family: sans-serif;
-    }
-    .ctrl input[type="radio"] { margin-right: 3px; }
+    .controls { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.95); padding: 8px 10px; border-radius: 8px; z-index: 999; display: flex; gap: 10px; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    .badge { font-size: 12px; background:#eee; padding:2px 6px; border-radius:999px; }
+    select, button { padding: 6px; }
   </style>
 </head>
 <body>
-  <div class="ctrl">
+  <div class="controls">
+    <label>Basemap:
+      <select id="basemap">
+        <option value="positron" selected>CartoDB Positron (hell)</option>
+        <option value="voyager">CartoDB Voyager</option>
+        <option value="osmde">OSM DE</option>
+        <option value="osmstd">OSM Standard</option>
+        <option value="tonerlite">Stamen Toner Lite (s/w)</option>
+      </select>
+    </label>
+    Ansicht:
     <label><input type="radio" name="mode" value="heat" checked> Heatmap</label>
     <label><input type="radio" name="mode" value="cluster"> Cluster</label>
     <label><input type="radio" name="mode" value="both"> Beides</label>
-    <button onclick="reset()">Reset</button>
+    <span class="badge" id="count">0 Pins</span>
+    <button id="resetBtn">Reset</button>
   </div>
   <div id="map"></div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script>
-    const map = L.map('map').setView([51.1657, 10.4515], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
     const socket = io();
+    const map = L.map('map', { zoomControl: true }).setView([51.4566, 7.0123], 12);
+    const basemaps = {
+      positron: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap & CARTO', subdomains: 'abcd', maxZoom: 20 }),
+      voyager:  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap & CARTO', subdomains: 'abcd', maxZoom: 20 }),
+      osmde:    L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }),
+      osmstd:   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }),
+      tonerlite:L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png', { attribution: '&copy; Stamen & OpenStreetMap', maxZoom: 20 })
+    };
+    let currentBase = basemaps.positron.addTo(map);
+    document.getElementById('basemap').addEventListener('change', (e) => { const val = e.target.value; if (basemaps[val]) { map.removeLayer(currentBase); currentBase = basemaps[val].addTo(map); } });
 
-    const heat = L.heatLayer([], { radius: 40, blur: 25, maxZoom: 16, minOpacity: 0.4, gradient: {0.2: 'blue', 0.5: 'lime', 0.7: 'red', 0.8: 'yellow'}}).addTo(map);
-    const cluster = L.markerClusterGroup();
-    map.addLayer(cluster);
+    const heat = L.heatLayer([], { radius: 40, blur: 25, maxZoom: 16, minOpacity: 0.3 });
+    const clusters = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 60 });
+    const pins = [];
+    const countEl = document.getElementById('count');
 
-    let pins = [];
-    function renderAll() {
-      heat.setLatLngs(pins.map(p => [p.lat, p.lon, p.size]));
-      cluster.clearLayers();
-      cluster.addLayers(pins.map(p => L.circleMarker([p.lat, p.lon], { radius: p.size * 5, color: 'red' })));
-    }
+    function updateCount() { countEl.textContent = pins.length + ' Pins'; }
+    function pinToMarker(p) { const s = Math.max(1, Math.min(5, p.size || 2)); return L.marker([p.lat, p.lon], { icon: L.divIcon({ className: 'pin', html: '<div style="width:'+ (s*6) +'px;height:'+ (s*6) +'px;border-radius:50%;border:2px solid #ef4444;background:rgba(239,68,68,0.5)"></div>', iconSize: [s*6, s*6], iconAnchor: [s*3, s*3] }) }); }
+    function renderAll() { heat.setLatLngs(pins.map(p => [p.lat, p.lon, Math.max(1, Math.min(5, p.size))])); clusters.clearLayers(); clusters.addLayers(pins.map(pinToMarker)); applyMode(currentMode()); updateCount(); }
+    function addPin(p) { pins.push(p); heat.addLatLng([p.lat, p.lon, Math.max(1, Math.min(5, p.size))]); clusters.addLayer(pinToMarker(p)); updateCount(); }
+    function currentMode() { return document.querySelector('input[name="mode"]:checked').value; }
+    function applyMode(mode) { map.removeLayer(heat); map.removeLayer(clusters); if (mode === 'heat') heat.addTo(map); else if (mode === 'cluster') clusters.addTo(map); else { heat.addTo(map); clusters.addTo(map); } }
 
-    socket.on('init', arr => { pins = arr; renderAll(); });
-    socket.on('pinAdded', p => { pins.push(p); renderAll(); });
-    socket.on('reset', () => { pins = []; renderAll(); });
-
-    document.querySelectorAll('input[name="mode"]').forEach(el =>
-      el.addEventListener('change', () => {
-        map.removeLayer(heat);
-        map.removeLayer(cluster);
-        const m = document.querySelector('input[name="mode"]:checked').value;
-        if (m === "heat") map.addLayer(heat);
-        if (m === "cluster") map.addLayer(cluster);
-        if (m === "both") { map.addLayer(heat); map.addLayer(cluster); }
-      })
-    );
-
-    function reset() {
-      const pw = prompt("Reset-Passwort:");
-      if (!pw) return;
-      fetch('/reset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw })
-      }).then(res => {
-        if (!res.ok) alert("Ungültiges Passwort!");
-      });
-    }
+    socket.on('init', (arr) => { arr.forEach(p => pins.push(p)); renderAll(); });
+    socket.on('pinAdded', addPin);
+    socket.on('reset', () => { pins.length = 0; heat.setLatLngs([]); clusters.clearLayers(); updateCount(); });
+    document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', () => applyMode(currentMode())));
+    document.getElementById('resetBtn').addEventListener('click', () => { const pw = prompt('Reset-Passwort:'); if (!pw) return; fetch('/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) }).then(res => { if (!res.ok) alert('Ungültiges Passwort!'); }); });
+    applyMode('heat');
   </script>
 </body>
 </html>
