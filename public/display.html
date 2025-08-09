@@ -22,16 +22,17 @@
     html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; color: var(--text); }
     #map { height: 100%; }
 
-    /* Toggle button */
+    /* Toggle button (oben rechts, gleiche Position wie das X) */
     .toggle-btn{
-      position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
-      z-index: 1001; width: 46px; height: 46px; border-radius: 50%;
+      position: absolute; right: 16px; top: 16px;
+      z-index: 1003; width: 46px; height: 46px; border-radius: 50%;
       background: var(--bg); border: 1px solid var(--border); backdrop-filter: blur(8px);
       box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: transform .15s ease, background .15s ease;
+      cursor: pointer; transition: transform .15s ease, background .15s ease, opacity .15s ease;
     }
-    .toggle-btn:hover{ transform: translateY(-50%) scale(1.04); background: rgba(255,255,255,0.85); }
+    .toggle-btn:hover{ transform: scale(1.04); background: rgba(255,255,255,0.85); }
     .toggle-btn svg{ width: 22px; height: 22px; opacity: .9; }
+    .toggle-btn.hidden { opacity: 0; pointer-events: none; }
 
     /* Sidebar panel */
     .sidebar{
@@ -95,8 +96,7 @@
     /* Mobile */
     @media (max-width: 760px){
       :root{ --panel-w: min(92vw, 360px); }
-      .toggle-btn{ right: 10px; top: auto; bottom: 14px; transform: none; }
-      .toggle-btn:hover{ transform: none; }
+      .toggle-btn{ right: 10px; top: 10px; }
       .sidebar{ right: 10px; left: 10px; width: auto; }
     }
   </style>
@@ -104,7 +104,7 @@
 <body>
   <div id="map"></div>
 
-  <!-- Toggle button -->
+  <!-- Toggle button (oben rechts) -->
   <button id="toggleBtn" class="toggle-btn" aria-label="Bedienfeld öffnen">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M4 6h16M4 12h16M4 18h16"/>
@@ -112,7 +112,7 @@
   </button>
 
   <!-- Sidebar -->
-  <aside id="sidebar" class="sidebar">
+  <aside id="sidebar" class="sidebar hidden">
     <div class="header">
       <div class="title">Anzeige & Steuerung</div>
       <button id="closePanel" class="close-btn" aria-label="Minimieren">
@@ -181,14 +181,20 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.js"></script>
   <script>
     // Sidebar toggle
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('toggleBtn');
     const closePanel = document.getElementById('closePanel');
-    function openSidebar(){ sidebar.classList.remove('hidden'); }
-    function closeSidebar(){ sidebar.classList.add('hidden'); }
+    function openSidebar(){
+      sidebar.classList.remove('hidden');
+      toggleBtn.classList.add('hidden');
+    }
+    function closeSidebar(){
+      sidebar.classList.add('hidden');
+      toggleBtn.classList.remove('hidden');
+    }
     toggleBtn.addEventListener('click', openSidebar);
     closePanel.addEventListener('click', closeSidebar);
 
