@@ -10,9 +10,19 @@
   <style>
     html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     #map { height: 100%; }
-    .controls { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.95); padding: 8px 10px; border-radius: 10px; z-index: 999; display: flex; gap: 10px; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+    .controls {
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(255,255,255,0.95); padding: 8px 10px; border-radius: 10px; z-index: 999;
+      display: flex; gap: 10px; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      flex-wrap: wrap;
+    }
     .badge { font-size: 12px; background:#eee; padding:2px 6px; border-radius:999px; }
     select, button { padding: 6px; }
+    .export-group { display: inline-flex; gap: 6px; align-items: center; }
+    @media (max-width: 700px) {
+      .controls { gap: 8px; }
+      .export-group select { max-width: 140px; }
+    }
   </style>
 </head>
 <body>
@@ -32,10 +42,16 @@
     <label><input type="radio" name="mode" value="both"> Beides</label>
     <span class="badge" id="count">0 Pins</span>
     <button id="fitBtn">Fit to Pins</button>
-    <button id="exportGeo">GeoJSON</button>
-    <button id="exportCsv">CSV</button>
-    <button id="exportKml">KML</button>
-    <button id="exportGpx">GPX</button>
+    <div class="export-group">
+      <label for="exportSelect">Export:</label>
+      <select id="exportSelect">
+        <option value="geojson">GeoJSON (.geojson)</option>
+        <option value="csv">CSV (.csv)</option>
+        <option value="kml">KML (.kml)</option>
+        <option value="gpx">GPX (.gpx)</option>
+      </select>
+      <button id="exportBtn">Download</button>
+    </div>
     <button id="resetBtn">Reset</button>
   </div>
   <div id="map"></div>
@@ -56,7 +72,10 @@
       tonerlite:L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png', { attribution: '&copy; Stamen & OpenStreetMap', maxZoom: 20 })
     };
     let currentBase = basemaps.positron.addTo(map);
-    document.getElementById('basemap').addEventListener('change', (e) => { const val = e.target.value; if (basemaps[val]) { map.removeLayer(currentBase); currentBase = basemaps[val].addTo(map); } });
+    document.getElementById('basemap').addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (basemaps[val]) { map.removeLayer(currentBase); currentBase = basemaps[val].addTo(map); }
+    });
 
     const heat = L.heatLayer([], { radius: 40, blur: 25, maxZoom: 16, minOpacity: 0.3 });
     const clusters = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 60 });
@@ -64,21 +83,64 @@
     const countEl = document.getElementById('count');
 
     function updateCount() { countEl.textContent = pins.length + ' Pins'; }
-    function pinToMarker(p) { const s = Math.max(1, Math.min(5, p.size || 2)); return L.marker([p.lat, p.lon], { icon: L.divIcon({ className: 'pin', html: '<div style="width:'+ (s*6) +'px;height:'+ (s*6) +'px;border-radius:50%;border:2px solid #ef4444;background:rgba(239,68,68,0.5)"></div>', iconSize: [s*6, s*6], iconAnchor: [s*3, s*3] }) }); }
-    function renderAll() { heat.setLatLngs(pins.map(p => [p.lat, p.lon, Math.max(1, Math.min(5, p.size))])); clusters.clearLayers(); clusters.addLayers(pins.map(pinToMarker)); applyMode(currentMode()); updateCount(); }
-    function addPin(p) { pins.push(p); heat.addLatLng([p.lat, p.lon, Math.max(1, Math.min(5, p.size))]); clusters.addLayer(pinToMarker(p)); updateCount(); }
-    function currentMode() { return document.querySelector('input[name="mode"]:checked').value; }
-    function applyMode(mode) { map.removeLayer(heat); map.removeLayer(clusters); if (mode === 'heat') heat.addTo(map); else if (mode === 'cluster') clusters.addTo(map); else { heat.addTo(map); clusters.addTo(map); } }
+    function pinToMarker(p) {
+      const s = Math.max(1, Math.min(5, p.size || 2));
+      return L.marker([p.lat, p.lon], {
+        icon: L.divIcon({ className: 'pin',
+          html: '<div style="width:'+ (s*6) +'px;height:'+ (s*6) +'px;border-radius:50%;border:2px solid #ef4444;background:rgba(239,68,68,0.5)"></div>',
+          iconSize: [s*6, s*6], iconAnchor: [s*3, s*3] })
+      });
+    }
 
-    function fitToPins() { if (pins.length === 0) return; const latlngs = pins.map(p => [p.lat, p.lon]); map.fitBounds(latlngs, { padding: [40, 40] }); }
+    function renderAll() {
+      heat.setLatLngs(pins.map(p => [p.lat, p.lon, Math.max(1, Math.min(5, p.size))]));
+      clusters.clearLayers();
+      clusters.addLayers(pins.map(pinToMarker));
+      applyMode(currentMode());
+      updateCount();
+    }
+
+    function addPin(p) {
+      pins.push(p);
+      heat.addLatLng([p.lat, p.lon, Math.max(1, Math.min(5, p.size))]);
+      clusters.addLayer(pinToMarker(p));
+      updateCount();
+    }
+
+    function currentMode() { return document.querySelector('input[name="mode"]:checked').value; }
+    function applyMode(mode) {
+      map.removeLayer(heat);
+      map.removeLayer(clusters);
+      if (mode === 'heat') heat.addTo(map);
+      else if (mode === 'cluster') clusters.addTo(map);
+      else { heat.addTo(map); clusters.addTo(map); }
+    }
+
+    function fitToPins() {
+      if (pins.length === 0) return;
+      const latlngs = pins.map(p => [p.lat, p.lon]);
+      map.fitBounds(latlngs, { padding: [40, 40] });
+    }
     document.getElementById('fitBtn').addEventListener('click', fitToPins);
 
-    document.getElementById('exportGeo').addEventListener('click', () => window.open('/pins.geojson', '_blank'));
-    document.getElementById('exportCsv').addEventListener('click', () => window.open('/pins.csv', '_blank'));
-    document.getElementById('exportKml').addEventListener('click', () => window.open('/pins.kml', '_blank'));
-    document.getElementById('exportGpx').addEventListener('click', () => window.open('/pins.gpx', '_blank'));
+    // Export via dropdown
+    const exportBtn = document.getElementById('exportBtn');
+    const exportSelect = document.getElementById('exportSelect');
+    exportBtn.addEventListener('click', () => {
+      const ext = exportSelect.value;
+      const href = ext === 'geojson' ? '/pins.geojson'
+                 : ext === 'csv'     ? '/pins.csv'
+                 : ext === 'kml'     ? '/pins.kml'
+                 : '/pins.gpx';
+      window.open(href, '_blank');
+    });
 
-    document.getElementById('resetBtn').addEventListener('click', () => { const pw = prompt('Reset-Passwort:'); if (!pw) return; fetch('/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) }).then(res => { if (!res.ok) alert('Ungültiges Passwort!'); }); });
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      const pw = prompt('Reset-Passwort:');
+      if (!pw) return;
+      fetch('/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) })
+        .then(res => { if (!res.ok) alert('Ungültiges Passwort!'); });
+    });
 
     socket.on('init', (arr) => { arr.forEach(p => pins.push(p)); renderAll(); });
     socket.on('pinAdded', addPin);
