@@ -3,73 +3,196 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Import-Ansicht (Drag & Drop, Multi-Datei)</title>
+  <title>Import-Ansicht</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
   <style>
-    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    :root{
+      --panel-w: 340px;
+      --bg: rgba(255,255,255,0.75);
+      --border: rgba(0,0,0,0.08);
+      --shadow: 0 8px 30px rgba(0,0,0,0.15);
+      --accent: #2563eb;
+      --accent-2: #ef4444;
+      --text: #0f172a;
+      --muted: #64748b;
+      --radius: 16px;
+    }
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; color: var(--text); }
     #map { height: 100%; }
-    .controls {
-      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-      background: rgba(255,255,255,0.95); padding: 8px 10px; border-radius: 10px; z-index: 999;
-      display: flex; gap: 10px; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-      flex-wrap: wrap; max-width: 95vw;
+
+    /* Toggle button (oben rechts) */
+    .toggle-btn{
+      position: absolute; right: 16px; top: 16px;
+      z-index: 1003; width: 46px; height: 46px; border-radius: 50%;
+      background: var(--bg); border: 1px solid var(--border); backdrop-filter: blur(8px);
+      box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: transform .15s ease, background .15s ease, opacity .15s ease;
     }
-    .badge { font-size: 12px; background:#eee; padding:2px 6px; border-radius:999px; }
-    select, button, input[type="file"] { padding: 6px; }
-    .dropzone {
-      position: absolute; left: 10px; top: 10px; z-index: 998;
-      background: rgba(255,255,255,0.85); border: 2px dashed #9ca3af; border-radius: 10px;
-      padding: 10px 12px; max-width: 260px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      transition: border-color .2s, background .2s;
+    .toggle-btn:hover{ transform: scale(1.04); background: rgba(255,255,255,0.85); }
+    .toggle-btn svg{ width: 22px; height: 22px; opacity: .9; }
+    .toggle-btn.hidden { opacity: 0; pointer-events: none; }
+
+    /* Sidebar panel */
+    .sidebar{
+      position: absolute; right: 16px; top: 16px; bottom: 16px; width: var(--panel-w);
+      background: var(--bg); border: 1px solid var(--border); backdrop-filter: blur(10px);
+      box-shadow: var(--shadow); border-radius: var(--radius);
+      z-index: 1002; display: flex; flex-direction: column; overflow: hidden;
+      transform: translateX(0); transition: transform .25s ease;
     }
-    .dropzone.highlight { border-color: #2563eb; background: rgba(219,234,254,0.9); }
-    .filelist { font-size: 12px; margin-top: 6px; max-height: 120px; overflow:auto; }
+    .sidebar.hidden{ transform: translateX(calc(100% + 16px)); }
+    .sidebar .header{
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.6);
+    }
+    .title{ font-weight: 600; letter-spacing: .2px; }
+    .close-btn{
+      width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+      background: white; display:flex; align-items:center; justify-content:center; cursor:pointer;
+      transition: transform .12s ease, background .15s ease;
+    }
+    .close-btn:hover{ transform: scale(1.04); background: #f8fafc; }
+    .close-btn svg{ width: 18px; height: 18px; }
+
+    .content{ padding: 14px; overflow: auto; display: grid; gap: 14px; }
+    .card{
+      background: rgba(255,255,255,0.7); border: 1px solid var(--border); border-radius: 12px; padding: 12px;
+    }
+    .card h4{ margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .row{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .row > * { flex: 1 1 auto; }
+
+    select, button, input[type="range"]{
+      font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #fff;
+    }
+    select{ width: 100%; }
+    .segmented{
+      display: inline-flex; background: #fff; border:1px solid var(--border); border-radius: 10px; overflow:hidden;
+    }
+    .segmented label{
+      padding: 8px 10px; cursor: pointer; display:flex; align-items:center; gap:6px; user-select: none;
+      border-right: 1px solid var(--border); font-size: 14px;
+    }
+    .segmented label:last-child{ border-right: none; }
+    .segmented input{ accent-color: var(--accent); }
+
+    .badge{
+      display:inline-flex; align-items:center; justify-content:center; gap:6px;
+      padding: 6px 10px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 12px;
+      border: 1px solid var(--border);
+    }
+    .btn{
+      border: 1px solid var(--border); background: #111827; color: #fff;
+      border-radius: 12px; padding: 10px 12px; cursor:pointer; transition: transform .1s ease, opacity .15s ease;
+    }
+    .btn:hover{ transform: translateY(-1px); opacity: .95; }
+    .btn.secondary{ background: #fff; color: #111827; }
+    .muted { color: var(--muted); font-size: 12px; }
+
+    .dropzone{
+      border: 2px dashed #9ca3af; border-radius: 12px; padding: 16px; text-align: center;
+      background: rgba(255,255,255,0.6); transition: border-color .15s ease, background .15s ease;
+      cursor: pointer;
+    }
+    .dropzone.highlight { border-color: var(--accent); background: rgba(219,234,254,0.8); }
+    .filelist { font-size: 12px; margin-top: 8px; max-height: 140px; overflow:auto; }
     .filelist div { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
-    @media (max-width: 700px) {
-      .controls { gap: 8px; }
-      .dropzone { position: static; max-width: none; }
+
+    /* Mobile */
+    @media (max-width: 760px){
+      :root{ --panel-w: min(92vw, 360px); }
+      .toggle-btn{ right: 10px; top: 10px; }
+      .sidebar{ right: 10px; left: 10px; width: auto; }
     }
   </style>
 </head>
 <body>
-  <div class="controls">
-    <label>Dateien laden:
-      <input type="file" id="fileInput" accept=".geojson,.json,.csv,.kml,.gpx" multiple />
-    </label>
-    <label>Basemap:
-      <select id="basemap">
-        <option value="positron" selected>CartoDB Positron</option>
-        <option value="voyager">CartoDB Voyager</option>
-        <option value="osmde">OSM DE</option>
-        <option value="osmstd">OSM Standard</option>
-        <option value="tonerlite">Stamen Toner Lite</option>
-      </select>
-    </label>
-    Ansicht:
-    <label><input type="radio" name="mode" value="heat" checked> Heatmap</label>
-    <label><input type="radio" name="mode" value="cluster"> Cluster</label>
-    <label><input type="radio" name="mode" value="both"> Beides</label>
-    <span class="badge" id="count">0 Pins</span>
-    <button id="fitBtn">Fit to Pins</button>
-  </div>
-
-  <div class="dropzone" id="dropzone">
-    <strong>Drag & Drop Import</strong><br/>
-    GeoJSON / CSV / KML / GPX hierher ziehen<br/>
-    <div class="filelist" id="filelist"></div>
-  </div>
-
   <div id="map"></div>
+
+  <!-- Toggle button (oben rechts) – initial HIDDEN, weil Sidebar offen startet -->
+  <button id="toggleBtn" class="toggle-btn hidden" aria-label="Bedienfeld öffnen">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+  </button>
+
+  <!-- Sidebar (sichtbar) -->
+  <aside id="sidebar" class="sidebar">
+    <div class="header">
+      <div class="title">Import & Anzeige</div>
+      <button id="closePanel" class="close-btn" aria-label="Minimieren">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="content">
+      <div class="card">
+        <h4>Dateien</h4>
+        <div id="dropzone" class="dropzone">
+          <strong>Dateien hierher ziehen</strong><br>
+          <span class="muted">oder klicken, um auszuwählen (GeoJSON, CSV, KML, GPX)</span>
+          <input id="fileInput" type="file" accept=".geojson,.json,.csv,.kml,.gpx" multiple style="display:none">
+        </div>
+        <div id="filelist" class="filelist"></div>
+      </div>
+
+      <div class="card">
+        <h4>Basemap</h4>
+        <select id="basemap">
+          <option value="positron" selected>CartoDB Positron</option>
+          <option value="voyager">CartoDB Voyager</option>
+          <option value="osmde">OSM DE</option>
+          <option value="osmstd">OSM Standard</option>
+          <option value="tonerlite">Stamen Toner Lite</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <h4>Ansicht</h4>
+        <div class="segmented">
+          <label><input type="radio" name="mode" value="heat" checked> Heatmap</label>
+          <label><input type="radio" name="mode" value="cluster"> Cluster</label>
+          <label><input type="radio" name="mode" value="both"> Beides</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Heatmap</h4>
+        <div class="row">
+          <label style="flex:0 0 90px; color:var(--muted); font-size:13px;">Intensität</label>
+          <input id="intensity" type="range" min="0.5" max="2.5" value="1.5" step="0.1">
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Status</h4>
+        <div class="row">
+          <span class="badge" id="count">0 Pins</span>
+          <button id="fitBtn" class="btn secondary" style="margin-left:auto;">Fit to Pins</button>
+        </div>
+      </div>
+    </div>
+  </aside>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script>
-    const map = L.map('map').setView([51.4566, 7.0123], 12);
+    // Sidebar toggle
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('toggleBtn');
+    const closePanel = document.getElementById('closePanel');
+    function openSidebar(){ sidebar.classList.remove('hidden'); toggleBtn.classList.add('hidden'); }
+    function closeSidebar(){ sidebar.classList.add('hidden'); toggleBtn.classList.remove('hidden'); }
+    toggleBtn.addEventListener('click', openSidebar);
+    closePanel.addEventListener('click', closeSidebar);
 
-    // Basemaps
+    // Map & basemaps
+    const map = L.map('map', { zoomControl: true }).setView([51.4566, 7.0123], 12);
     const basemaps = {
       positron: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap & CARTO', subdomains: 'abcd', maxZoom: 20 }),
       voyager:  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap & CARTO', subdomains: 'abcd', maxZoom: 20 }),
@@ -83,31 +206,59 @@
       if (basemaps[val]) { map.removeLayer(currentBase); currentBase = basemaps[val].addTo(map); }
     });
 
-    // Overlays
-    const heat = L.heatLayer([], { radius: 40, blur: 25, maxZoom: 16, minOpacity: 0.3 });
+    // Heat settings (wie Display)
+    const HEAT_BASE_METERS = 420;
+    const HEAT_BLUR_RATIO = 0.55;
+    const HEAT_MIN_PX = 18, HEAT_MAX_PX = 60;
+    const sizeWeight = {1: 1.0, 2: 1.8, 3: 2.8};
+    let intensityFactor = 1.5;
+
+    const heat = L.heatLayer([], {
+      radius: 30, blur: 16, maxZoom: 18, minOpacity: 0.35, max: 1.4,
+      gradient: { 0.0:'#a5b4fc', 0.4:'#60a5fa', 0.7:'#34d399', 0.85:'#f59e0b', 1.0:'#ef4444' }
+    });
+    function metersToPixels(m, lat, zoom) {
+      const mpp = 156543.03392 * Math.cos(lat * Math.PI/180) / Math.pow(2, zoom);
+      return m / mpp;
+    }
+    function updateHeatRadius() {
+      const z = map.getZoom();
+      const lat = map.getCenter().lat;
+      let rPx = Math.round(metersToPixels(HEAT_BASE_METERS, lat, z));
+      rPx = Math.max(HEAT_MIN_PX, Math.min(HEAT_MAX_PX, rPx));
+      heat.setOptions({ radius: rPx, blur: Math.round(rPx * HEAT_BLUR_RATIO) });
+    }
+    function recomputeHeatPoints() {
+      const pts = pins.map(p => [p.lat, p.lon, (sizeWeight[p.size] || 1) * intensityFactor]);
+      heat.setLatLngs(pts);
+    }
+
+    // Cluster
+    function pinToMarker(p) {
+      const s = Math.max(1, Math.min(5, p.size || 2));
+      const px = s * 6;
+      return L.marker([p.lat, p.lon], {
+        icon: L.divIcon({
+          className: 'pin',
+          html: '<div style="width:'+ px +'px;height:'+ px +'px;border-radius:50%;border:2px solid #ef4444;background:rgba(239,68,68,0.5)"></div>',
+          iconSize: [px, px], iconAnchor: [px/2, px/2]
+        })
+      });
+    }
     const clusters = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 60 });
 
-    const pins = []; // {lat, lon, size}
+    const pins = [];
     const countEl = document.getElementById('count');
     function updateCount() { countEl.textContent = pins.length + ' Pins'; }
 
-    function pinToMarker(p) {
-      const s = Math.max(1, Math.min(5, p.size || 2));
-      return L.marker([p.lat, p.lon], {
-        icon: L.divIcon({ className: 'pin',
-          html: '<div style="width:'+ (s*6) +'px;height:'+ (s*6) +'px;border-radius:50%;border:2px solid #ef4444;background:rgba(239,68,68,0.5)"></div>',
-          iconSize: [s*6, s*6], iconAnchor: [s*3, s*3] })
-      });
-    }
-
     function renderAll() {
-      heat.setLatLngs(pins.map(p => [p.lat, p.lon, Math.max(1, Math.min(5, p.size))]));
+      recomputeHeatPoints();
       clusters.clearLayers();
       clusters.addLayers(pins.map(pinToMarker));
       applyMode(currentMode());
       updateCount();
+      updateHeatRadius();
     }
-
     function currentMode() { return document.querySelector('input[name="mode"]:checked').value; }
     function applyMode(mode) {
       map.removeLayer(heat);
@@ -117,6 +268,10 @@
       else { heat.addTo(map); clusters.addTo(map); }
     }
     document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', () => applyMode(currentMode())));
+    document.getElementById('intensity').addEventListener('input', (e) => {
+      intensityFactor = parseFloat(e.target.value || '1.5');
+      recomputeHeatPoints();
+    });
 
     function fitToPins() {
       if (pins.length === 0) return;
@@ -125,14 +280,20 @@
     }
     document.getElementById('fitBtn').addEventListener('click', fitToPins);
 
-    // ---- Import handling ----
-    document.getElementById('fileInput').addEventListener('change', (e) => {
+    map.on('zoomend moveend', () => { updateHeatRadius(); });
+
+    // ---- Import handling (Drag & Drop + File Dialog, mehrere Dateien kombinierbar) ----
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const filelist = document.getElementById('filelist');
+
+    // Click to open file dialog
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
       if (!e.target.files || !e.target.files.length) return;
       handleFiles(Array.from(e.target.files));
+      fileInput.value = ''; // reset
     });
-
-    const dropzone = document.getElementById('dropzone');
-    const filelist = document.getElementById('filelist');
 
     ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, (e) => {
       e.preventDefault(); e.stopPropagation(); dropzone.classList.add('highlight');
@@ -146,7 +307,6 @@
     });
 
     async function handleFiles(files) {
-      // Process sequentially to keep UI responsive & summarize
       for (const f of files) {
         const n = f.name;
         const ext = n.toLowerCase().split('.').pop();
@@ -254,7 +414,7 @@
       }
     }
 
-    // Initial mode
+    // Initial
     applyMode('heat');
   </script>
 </body>
