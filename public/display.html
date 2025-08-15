@@ -8,7 +8,25 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <script src="https://cdn.jsdelivr.net/npm/webgl-heatmap@2.0.6/webgl-heatmap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/webgl-heatmap@2.0.6/webgl-heatmap.min.js">
+window.addEventListener('error', (e) => {
+  try {
+    let box = document.getElementById('dbg_errors');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'dbg_errors';
+      box.style.position='fixed'; box.style.right='8px'; box.style.bottom='8px';
+      box.style.zIndex='6000'; box.style.background='#fee2e2'; box.style.color='#991b1b';
+      box.style.padding='8px 10px'; box.style.borderRadius='8px'; box.style.maxWidth='50vw';
+      box.style.fontSize='12px'; box.style.boxShadow='0 4px 16px rgba(0,0,0,.25)';
+      document.body.appendChild(box);
+    }
+    const msg = (e.message || 'Script error') + ' @ ' + (e.filename||'') + ':' + (e.lineno||'') + ':' + (e.colno||'');
+    box.textContent = 'JS-Fehler: ' + msg;
+  } catch(_) {}
+});
+
+</script>
   <script src="https://cdn.jsdelivr.net/npm/webgl-heatmap-leaflet@1.0.8/webgl-heatmap-leaflet.js"></script>
   <style>
     :root{
@@ -99,9 +117,14 @@
       .toggle-btn{ right: 10px; top: 10px; }
       .sidebar{ right: 10px; left: 10px; width: auto; }
     }
+  
+    /* debug badge */
+    .dbg-badge{position:fixed;left:8px;bottom:8px;z-index:5000;background:#111827;color:#fff;
+      font-size:11px;padding:4px 6px;border-radius:6px;opacity:.7;pointer-events:none;}
+    
   </style>
 </head>
-<body>
+<body data-build="DBG-1755258835">
   <div id="map"></div>
 
   <button id="toggleBtn" class="toggle-btn" aria-label="Bedienfeld öffnen">
@@ -183,6 +206,11 @@
   <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script>
+document.addEventListener('DOMContentLoaded', () => {
+
+console.log('[BUILD] DISPLAY DBG-1755258835');
+window.__BUILD__='DBG-1755258835';
+
     // Sidebar toggle
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('toggleBtn');
@@ -238,7 +266,7 @@
     }
     function recomputeHeatPoints() {
       const pts = pins.map(p => [p.lat, p.lon, (sizeWeight[p.size] || 1) * intensityFactor]);
-      heat.setLatLngs(pts); try{ syncHeatToWebGL(); }catch(e){}
+      heat.setLatLngs(pts);
     }
 
     function pinToMarker(p) {
@@ -268,10 +296,7 @@
     }
 
     function addPin(p) {
-      pins.push(p);
-      recomputeHeatPoints();
-      clusters.addLayer(pinToMarker(p));
-      updateCount();
+      pins.push(p); recomputeHeatPoints(); clusters.addLayer(pinToMarker(p)); updateCount(); if (document.getElementById('autoFitToggle')?.checked) fitToPins();
       updateHeatRadius();
     }
 
@@ -325,10 +350,10 @@
       recomputeHeatPoints();
     });
     document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', () => applyMode(currentMode())));
-    const autoFitEl = document.getElementById('autoFitToggle'); if (autoFitEl) autoFitEl.addEventListener('change', () => { if (autoFitEl.checked) fitToPins(); });
-    const webglEl = document.getElementById('webglToggle'); if (webglEl) webglEl.addEventListener('change', () => applyMode(currentMode()));
     applyMode('heat');
     map.on('zoomend moveend', () => { updateHeatRadius(); });
-  </script>
+  
+});
+</script>
 </body>
 </html>
