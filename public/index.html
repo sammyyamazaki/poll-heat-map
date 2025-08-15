@@ -196,7 +196,7 @@ let lastPinAt = 0;
       }
       suggestTimer = setTimeout(async () => {
         try {
-          const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=0&limit=5`;
+          const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=8`;
           const res = await fetch(url, { headers: { 'Accept-Language': 'de' }});
           const list = await res.json();
           if (!Array.isArray(list) || list.length === 0) {
@@ -204,11 +204,18 @@ let lastPinAt = 0;
             suggestBox.innerHTML = '';
             return;
           }
-          suggestBox.innerHTML = list.map(item =>
-            `<div class="suggest-item" data-lat="${item.lat}" data-lon="${item.lon}">
-              ${(item.display_name || '').replace(/, Deutschland$/, '')}
-            </div>`
-          ).join('');
+          suggestBox.innerHTML = list.map(item => {
+            const a = item.address || {};
+            const road = a.road || a.pedestrian || a.footway || a.path || a.residential || a.cycleway || '';
+            const house = a.house_number || '';
+            const city = a.city || a.town || a.village || '';
+            const primary = road ? (house ? `${road}, ${house}` : road) : (item.name || city || 'Ort');
+            const secondary = city;
+            return `<div class="suggest-item" data-lat="${item.lat}" data-lon="${item.lon}">
+                      <div class="primary">${primary}</div>
+                      <div class="secondary">${secondary}</div>
+                    </div>`;
+          }).join('');
           suggestBox.classList.remove('hidden');
         } catch {
           suggestBox.classList.add('hidden');
