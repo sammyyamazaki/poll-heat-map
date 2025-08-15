@@ -7,6 +7,34 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// --- Added: Rate limit, merge, undo state ---
+const crypto = require('crypto');
+const RATE_MS = 1500, BURST = 3; // Token bucket: 1 Pin / 1.5s, Burst 3
+const MERGE_RADIUS_M = 10;       // Merge-Radius in Metern
+const buckets = new Map();       // socket.id -> { tokens, last }
+const undoStacks = new Map();    // socket.id -> [{type:'add'|'merge', pinId, prevSize}]
+
+function now(){ return Date.now(); }
+function id(){ return crypto.randomBytes(8).toString('hex'); }
+function takeToken(sid){
+  const t = now();
+  let b = buckets.get(sid) || { tokens: BURST, last: t };
+  const elapsed = t - b.last;
+  const refill = Math.floor(elapsed / RATE_MS);
+  if (refill > 0){ b.tokens = Math.min(BURST, b.tokens + refill); b.last = t; }
+  if (b.tokens <= 0){ buckets.set(sid, b); return false; }
+  b.tokens -= 1; buckets.set(sid, b); return true;
+}
+function haversineMeters(a, b){
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lon - a.lon);
+  const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+  const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+
+
 const PORT = process.env.PORT || 3000;
 const RESET_PASSWORD = process.env.RESET_PASSWORD || 'geheim123';
 
@@ -34,10 +62,61 @@ function canAcceptPin(socketId) {
 io.on('connection', (socket) => {
   socket.emit('init', pins);
 
-  socket.on('newPin', (pin) => {
-    const check = canAcceptPin(socket.id);
-    if (!check.ok) {
-      socket.emit('pinRejected', { reason: check.reason });
+  socket.on('undo', () => {
+    const st = undoStacks.get(socket.id) || [];
+    const last = st.pop();
+    if (!last) return;
+    if (last.type === 'add'){
+      const idx = pins.findIndex(p => p.id === last.pinId);
+      if (idx >= 0){ const [removed] = pins.splice(idx,1); io.emit('pinRemoved', removed.id); }
+    } else if (last.type === 'merge'){
+      const p = pins.find(x => x.id === last.pinId);
+      if (p){ p.size = last.prevSize; p.ts = Date.now(); io.emit('pinUpdated', p); }
+    }
+    undoStacks.set(socket.id, st);
+  });
+
+  socket.on('newPin', ({ lat, lon, size }) => {
+    lat = +lat; lon = +lon; size = +size;
+    if (!isFinite(lat) || !isFinite(lon)) return;
+    if (!(size >= 1 && size <= 5)) size = 2;
+
+    // Rate limit
+    if (!takeToken(socket.id)) {
+      socket.emit('pinRejected', { reason: 'rate_limit' });
+      return;
+    }
+
+    // Merge within MERGE_RADIUS_M (max size)
+    let merged = null, mergedPrevSize = null;
+    for (let i=0;i<pins.length;i++){
+      const p = pins[i];
+      const d = haversineMeters({lat,lon},{lat:p.lat,lon:p.lon});
+      if (d <= MERGE_RADIUS_M){
+        merged = p; mergedPrevSize = p.size;
+        p.size = Math.max(p.size, size); p.ts = Date.now();
+        io.emit('pinUpdated', p);
+        break;
+      }
+    }
+    if (merged){
+      const st = undoStacks.get(socket.id) || [];
+      st.push({ type:'merge', pinId: merged.id, prevSize: mergedPrevSize });
+      if (st.length > 50) st.shift();
+      undoStacks.set(socket.id, st);
+      return;
+    }
+
+    // Add new pin
+    const p = { id: id(), lat, lon, size, ts: Date.now(), by: socket.id };
+    pins.push(p);
+    io.emit('pinAdded', p);
+
+    const st = undoStacks.get(socket.id) || [];
+    st.push({ type:'add', pinId: p.id });
+    if (st.length > 50) st.shift();
+    undoStacks.set(socket.id, st);
+  });
       return;
     }
     if (pin && typeof pin.lat === 'number' && typeof pin.lon === 'number') {
