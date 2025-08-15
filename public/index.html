@@ -179,8 +179,12 @@ let lastPinAt = 0;
       localMarkers.push(m);
     }
 
-    document.getElementById('undoBtn').addEventListener('click', ()=> socket.emit('undo'));
-      document.getElementById('searchBtn').onclick = async () => {
+    document.getElementById('undoBtn').addEventListener('click', () => {
+      socket.emit('undo');
+      const m = localMarkers.pop();
+      if (m) { try { m.remove(); } catch(e){} }
+    });
+document.getElementById('searchBtn').onclick = async () => {
       const q = document.getElementById('address').value.trim();
       if (!q) return;
       const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(q)}&limit=8`;
