@@ -26,7 +26,7 @@ const MERGE_RADIUS_M = 10;
 
 // Helpers
 function now(){ return Date.now(); }
-function id(){ return require('crypto').randomBytes(8).toString('hex'); }
+function id(){ return crypto.randomBytes(8).toString('hex'); }
 
 function haversineMeters(a, b){
   const R = 6371000;
@@ -134,7 +134,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Reset (protected)
+// Reset (protected by password in query/body)
 app.post('/reset', (req, res) => {
   const token = (req.query.p || req.body.p || '').toString();
   if (token !== RESET_PASSWORD) return res.status(401).json({ ok:false, error:'unauthorized' });
