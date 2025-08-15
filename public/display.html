@@ -8,26 +8,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <script src="https://cdn.jsdelivr.net/npm/webgl-heatmap@2.0.6/webgl-heatmap.min.js">
-window.addEventListener('error', (e) => {
-  try {
-    let box = document.getElementById('dbg_errors');
-    if (!box) {
-      box = document.createElement('div');
-      box.id = 'dbg_errors';
-      box.style.position='fixed'; box.style.right='8px'; box.style.bottom='8px';
-      box.style.zIndex='6000'; box.style.background='#fee2e2'; box.style.color='#991b1b';
-      box.style.padding='8px 10px'; box.style.borderRadius='8px'; box.style.maxWidth='50vw';
-      box.style.fontSize='12px'; box.style.boxShadow='0 4px 16px rgba(0,0,0,.25)';
-      document.body.appendChild(box);
-    }
-    const msg = (e.message || 'Script error') + ' @ ' + (e.filename||'') + ':' + (e.lineno||'') + ':' + (e.colno||'');
-    box.textContent = 'JS-Fehler: ' + msg;
-  } catch(_) {}
-});
-
-</script>
-  <script src="https://cdn.jsdelivr.net/npm/webgl-heatmap-leaflet@1.0.8/webgl-heatmap-leaflet.js"></script>
   <style>
     :root{
       --panel-w: 340px;
@@ -117,14 +97,9 @@ window.addEventListener('error', (e) => {
       .toggle-btn{ right: 10px; top: 10px; }
       .sidebar{ right: 10px; left: 10px; width: auto; }
     }
-  
-    /* debug badge */
-    .dbg-badge{position:fixed;left:8px;bottom:8px;z-index:5000;background:#111827;color:#fff;
-      font-size:11px;padding:4px 6px;border-radius:6px;opacity:.7;pointer-events:none;}
-    
   </style>
 </head>
-<body data-build="DBG-1755258835">
+<body>
   <div id="map"></div>
 
   <button id="toggleBtn" class="toggle-btn" aria-label="Bedienfeld öffnen">
@@ -167,8 +142,6 @@ window.addEventListener('error', (e) => {
       <div class="card">
         <h4>Heatmap</h4>
         <div class="row">
-        <label><input type="checkbox" id="webglToggle"> WebGL-Heatmap</label>
-        <label><input type="checkbox" id="autoFitToggle"> Auto-Resize</label>
           <label style="flex:0 0 90px; color:var(--muted); font-size:13px;">Intensität</label>
           <input id="intensity" type="range" min="0.5" max="2.5" value="1.5" step="0.1">
         </div>
@@ -206,11 +179,6 @@ window.addEventListener('error', (e) => {
   <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script>
-document.addEventListener('DOMContentLoaded', () => {
-
-console.log('[BUILD] DISPLAY DBG-1755258835');
-window.__BUILD__='DBG-1755258835';
-
     // Sidebar toggle
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('toggleBtn');
@@ -241,14 +209,10 @@ window.__BUILD__='DBG-1755258835';
     const HEAT_BASE_METERS = 420;
     const HEAT_BLUR_RATIO = 0.55;
     const HEAT_MIN_PX = 18, HEAT_MAX_PX = 60;
-    const sizeWeight = {1: 1.0, 2: 1.8, 3: 2.8};
+    function weightForSize(s){ s = Math.max(1, Math.min(5, parseFloat(s||2))); const k = 0.5; return Math.min(5, Math.exp(k*(s-1))); }
     let intensityFactor = 1.5;
 
     const heat = L.heatLayer([], {
-      radius: 30, blur: 16, maxZoom: 18, minOpacity: 0.35, max: 1.4,
-      gradient: { 0.0:'#a5b4fc', 0.4:'#60a5fa', 0.7:'#34d399', 0.85:'#f59e0b', 1.0:'#ef4444' }
-    });
-    const heatWebGL = new L.WebGLHeatMap({ size: 512, opacity: 0.8, alphaRange: 1.0 });
       radius: 30, blur: 16, maxZoom: 18, minOpacity: 0.35, max: 1.4,
       gradient: { 0.0:'#a5b4fc', 0.4:'#60a5fa', 0.7:'#34d399', 0.85:'#f59e0b', 1.0:'#ef4444' }
     });
@@ -265,12 +229,12 @@ window.__BUILD__='DBG-1755258835';
       heat.setOptions({ radius: rPx, blur: Math.round(rPx * HEAT_BLUR_RATIO) });
     }
     function recomputeHeatPoints() {
-      const pts = pins.map(p => [p.lat, p.lon, (sizeWeight[p.size] || 1) * intensityFactor]);
+      const pts = pins.map(p => [p.lat, p.lon, weightForSize(p.size) * intensityFactor]);
       heat.setLatLngs(pts);
     }
 
     function pinToMarker(p) {
-      const s = Math.max(1, Math.min(5, p.size || 2));
+      const s = Math.max(1, Math.min(5, parseFloat(p.size || 2)));
       const px = s * 6;
       return L.marker([p.lat, p.lon], {
         icon: L.divIcon({
@@ -296,26 +260,20 @@ window.__BUILD__='DBG-1755258835';
     }
 
     function addPin(p) {
-      pins.push(p); recomputeHeatPoints(); clusters.addLayer(pinToMarker(p)); updateCount(); if (document.getElementById('autoFitToggle')?.checked) fitToPins();
+      pins.push(p);
+      recomputeHeatPoints();
+      clusters.addLayer(pinToMarker(p));
+      updateCount();
       updateHeatRadius();
     }
 
     function currentMode() { return document.querySelector('input[name="mode"]:checked').value; }
-    function applyMode(mode){
-      try{ map.removeLayer(heat); }catch{}
-      try{ map.removeLayer(clusters); }catch{}
-      try{ map.removeLayer(heatWebGL); }catch{}
-      const useWebGL = document.getElementById('webglToggle')?.checked;
-      if (mode === 'heat') {
-        if (useWebGL) heatWebGL.addTo(map); else heat.addTo(map);
-      } else if (mode === 'cluster') {
-        clusters.addTo(map);
-      } else {
-        if (useWebGL) heatWebGL.addTo(map); else heat.addTo(map);
-        clusters.addTo(map);
-      }
-      if (mode !== 'cluster') updateHeatRadius();
-    }
+    function applyMode(mode) {
+      map.removeLayer(heat);
+      map.removeLayer(clusters);
+      if (mode === 'heat') heat.addTo(map);
+      else if (mode === 'cluster') clusters.addTo(map);
+      else { heat.addTo(map); clusters.addTo(map); }
     }
 
     function fitToPins() {
@@ -343,6 +301,8 @@ window.__BUILD__='DBG-1755258835';
 
     socket.on('init', (arr) => { arr.forEach(p => pins.push(p)); renderAll(); });
     socket.on('pinAdded', addPin);
+    socket.on('pinUpdated', (p) => { const i = pins.findIndex(x => x.id === p.id); if (i>=0){ pins[i]=p; recomputeHeatPoints(); updateCount(); if (document.getElementById('autoFitToggle')?.checked) fitToPins(); } });
+    socket.on('pinRemoved', (id) => { const i = pins.findIndex(x => x.id === id); if (i>=0){ pins.splice(i,1); recomputeHeatPoints(); clusters.clearLayers(); pins.forEach(pp => clusters.addLayer(pinToMarker(pp))); updateCount(); if (document.getElementById('autoFitToggle')?.checked) fitToPins(); } });
     socket.on('reset', () => { pins.length = 0; heat.setLatLngs([]); clusters.clearLayers(); updateCount(); updateHeatRadius(); });
 
     document.getElementById('intensity').addEventListener('input', (e) => {
@@ -352,8 +312,6 @@ window.__BUILD__='DBG-1755258835';
     document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', () => applyMode(currentMode())));
     applyMode('heat');
     map.on('zoomend moveend', () => { updateHeatRadius(); });
-  
-});
-</script>
+  </script>
 </body>
 </html>
