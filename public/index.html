@@ -186,6 +186,13 @@ let lastPinAt = 0;
 
     const suggestBox = document.getElementById('suggest');
     let suggestTimer = null;
+    let suggestController = null;
+    function hideSuggest(){
+      if (suggestTimer) { clearTimeout(suggestTimer); suggestTimer = null; }
+      if (suggestController) { try { suggestController.abort(); } catch {} suggestController = null; }
+      suggestBox.classList.add('hidden');
+      suggestBox.innerHTML = '';
+    }
     document.getElementById('address').addEventListener('input', (e) => {
       const q = e.target.value.trim();
       clearTimeout(suggestTimer);
@@ -231,10 +238,18 @@ let lastPinAt = 0;
       const lon = parseFloat(el.dataset.lon);
       map.setView([lat, lon], 14);
       placePin(lat, lon);
+      // Always hide and clear suggestions after selection
+      suggestBox.innerHTML = '';
       suggestBox.classList.add('hidden');
+      document.getElementById('address').value = '';
+suggestBox.classList.add('hidden');
       suggestBox.innerHTML = '';
       document.getElementById('address').value = '';
     });
+
+    document.getElementById('address').addEventListener('blur', () => { setTimeout(hideSuggest, 150); });
+    document.getElementById('address').addEventListener('keydown', (e) => { if (e.key === 'Escape') hideSuggest(); });
+    document.addEventListener('click', (e) => { const wrap = document.querySelector('.address-wrap'); if (!wrap) return; if (!wrap.contains(e.target) && !suggestBox.contains(e.target)) hideSuggest(); });
 
     map.on('click', e => placePin(e.latlng.lat, e.latlng.lng));
 
