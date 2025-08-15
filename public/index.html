@@ -133,7 +133,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
+    z-index: 2147483647; /* on top of everything */
   }
       #undoBtn:hover {
     background-color: darkorange;
@@ -198,7 +198,7 @@
     <div id="suggest" class="suggest hidden"></div>
   </div>
   <button id="searchBtn">Senden</button>
-      <button id="undoBtn" title="Letzte Aktion rückgängig"><i class="fas fa-rotate-left"></i></button>
+      
 </div>
 <div id="map"></div>
 <div id="splash" class="splash">
@@ -341,5 +341,6 @@ suggestBox.classList.add('hidden');
       else if (reason === 'rate_limit') alert('Zu viele Einträge in kurzer Zeit. Bitte kurz warten.');
     });
   </script>
+  <button id="undoBtn" title="Letzte Aktion rückgängig"><i class="fas fa-rotate-left"></i></button>
 </body>
 </html>
