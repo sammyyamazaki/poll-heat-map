@@ -344,38 +344,54 @@ suggestBox.classList.add('hidden');
 
 <script>
 (function(){
-  function mountFloatingUndo(){
+  function styleAndPlace(btn){
+    var s = btn.style;
+    s.position = 'fixed';
+    s.bottom = '20px';
+    s.right = '20px';
+    s.border = 'none';
+    s.borderRadius = '50%';
+    s.width = '56px';
+    s.height = '56px';
+    s.display = 'flex';
+    s.alignItems = 'center';
+    s.justifyContent = 'center';
+    s.boxShadow = '0 6px 16px rgba(0,0,0,0.25)';
+    s.backgroundColor = 'orange';
+    s.color = 'white';
+    s.cursor = 'pointer';
+    s.zIndex = 1500;
+    btn.addEventListener('mouseenter', function(){ btn.style.backgroundColor = 'darkorange'; });
+    btn.addEventListener('mouseleave', function(){ btn.style.backgroundColor = 'orange'; });
+  }
+  function isSplashVisible(){
+    var sp = document.getElementById('splash');
+    if (!sp) return false;
+    var cs = window.getComputedStyle(sp);
+    return cs && cs.display !== 'none' && cs.visibility !== 'hidden' && parseFloat(cs.opacity || '1') > 0.01;
+  }
+  function tryMount(attempt){
     try{
       var btn = document.getElementById('undoBtn');
-      if(!btn) return;
-      if (btn.parentElement !== document.body) {
+      if (!btn){ if (attempt < 50) setTimeout(function(){ tryMount(attempt+1); }, 100); return; }
+      if (btn.parentElement !== document.body){
         document.body.appendChild(btn);
       }
-      var s = btn.style;
-      s.position = 'fixed';
-      s.bottom = '20px';
-      s.right = '20px';
-      s.border = 'none';
-      s.borderRadius = '50%';
-      s.width = '56px';
-      s.height = '56px';
-      s.display = 'flex';
-      s.alignItems = 'center';
-      s.justifyContent = 'center';
-      s.boxShadow = '0 6px 16px rgba(0,0,0,0.25)';
-      s.backgroundColor = 'orange';
-      s.color = 'white';
-      s.cursor = 'pointer';
-      s.zIndex = 1500;
-      btn.addEventListener('mouseenter', function(){ btn.style.backgroundColor = 'darkorange'; });
-      btn.addEventListener('mouseleave', function(){ btn.style.backgroundColor = 'orange'; });
+      styleAndPlace(btn);
+      if (isSplashVisible()){
+        btn.style.zIndex = 1500;
+      } else {
+        btn.style.zIndex = 1500;
+      }
     }catch(e){}
+    if (attempt < 50) setTimeout(function(){ tryMount(attempt+1); }, 100);
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mountFloatingUndo);
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ tryMount(0); });
   } else {
-    mountFloatingUndo();
+    tryMount(0);
   }
+  window.addEventListener('load', function(){ setTimeout(function(){ tryMount(0); }, 200); });
 })();
 </script>
 
