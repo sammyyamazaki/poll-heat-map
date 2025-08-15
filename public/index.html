@@ -139,38 +139,41 @@
     background-color: darkorange;
   }
   
-/* Kombinierte Senden/Undo Buttons */
-.button-row {
-  display: flex;
-  width: min(100%, var(--input-w, 520px));
-  margin-top: 8px;
+/* Button-Zeile: bündig mit Suchfeld, gleiche Höhe; links Senden (grün, 60%), rechts Undo (orange, 40%) */
+.button-row{
+  display:flex;
+  width:min(100%, var(--input-w, 520px));
+  margin-top:10px;
 }
 .button-row .send-btn,
-.button-row .undo-btn {
-  height: 42px;
-  border: none;
-  color: #fff;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
+.button-row .undo-btn{
+  height:48px;
+  border:none;
+  color:#fff;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  letter-spacing:0.5px;
+  line-height:1;
 }
-.button-row .send-btn {
-  flex: 3 1 60%;
-  background-color: #4CAF50;
-  border-top-left-radius: 8px;
-  border-bottom-left-radius: 8px;
+.button-row .send-btn{
+  flex:3 1 60%;
+  background:#22c55e;
+  border-top-left-radius:12px;
+  border-bottom-left-radius:12px;
+  font-size:18px; /* SENDEN etwas größer */
 }
-.button-row .undo-btn {
-  flex: 2 1 40%;
-  background-color: orange;
-  border-top-right-radius: 8px;
-  border-bottom-right-radius: 8px;
-  font-size: 18px;
+.button-row .undo-btn{
+  flex:2 1 40%;
+  background:orange;
+  border-top-right-radius:12px;
+  border-bottom-right-radius:12px;
+  font-size:20px; /* Icon optisch passend groß */
 }
-.button-row .send-btn:hover { background-color: #45a049; }
-.button-row .undo-btn:hover { background-color: darkorange; }
+.button-row .send-btn:hover{ filter:brightness(0.95); }
+.button-row .undo-btn:hover{ background:darkorange; }
 
 </style>
 
@@ -231,10 +234,9 @@
     <input id="address" type="text" placeholder="Adresse suchen…" autocomplete="off" />
     <div id="suggest" class="suggest hidden"></div>
   </div>
-  
-<div class="button-row">
-  <button id="searchBtn" class="send-btn">Senden</button>
-  <button id="undoBtn" class="undo-btn" title="Letzte Aktion rückgängig"><i class="fas fa-rotate-left"></i></button>
+  <div class="button-row">
+  <button id="searchBtn" class="send-btn">SENDEN</button>
+  <button id="undoBtn" title="Letzte Aktion rückgängig"><i class="undo-btn fas fa-rotate-left"></i></button>
 </div>
       
 </div>
