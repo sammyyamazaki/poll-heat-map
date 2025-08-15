@@ -166,14 +166,17 @@ sizeSlider.addEventListener('input', updateSize);
 updateSize();
 
 let lastPinAt = 0;
+    // Track markers placed by this client so Undo can remove them locally
+    const localMarkers = [];
     function placePin(lat, lon) {
       const now = Date.now();
       if (now - lastPinAt < 500) return;
       lastPinAt = now;
       socket.emit('newPin', { lat, lon, size: selectedSize });
-      L.circleMarker([lat, lon], {
+      const m = L.circleMarker([lat, lon], {
         radius: selectedSize * 5, color: 'red', fillColor: '#f88', fillOpacity: 0.5, weight: 2
       }).addTo(map);
+      localMarkers.push(m);
     }
 
     document.getElementById('undoBtn').addEventListener('click', ()=> socket.emit('undo'));
