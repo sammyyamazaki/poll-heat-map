@@ -9,6 +9,7 @@
           setTimeout(function(){ try{ el.remove(); }catch(e){} }, 600);
         }catch(e){}
       }
+      // Ensure we don't attach twice
       el.addEventListener('click', hide, { once: true });
       el.addEventListener('touchstart', hide, { once: true, passive: true });
       setTimeout(hide, 1200);
