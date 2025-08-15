@@ -106,25 +106,26 @@
     }).addTo(map);
 
     const splash = document.getElementById('splash');
-    function hideSplash() {
-      splash.classList.add('hidden');
-      setTimeout(() => splash.remove(), 600);
-    }
-    setTimeout(hideSplash, 2000);
-    splash.addEventListener('click', hideSplash);
-    splash.addEventListener('touchstart', hideSplash, { passive: true });
+function hideSplash() {
+  if (!splash) return;
+  splash.classList.add('hidden');
+  setTimeout(() => splash.remove(), 600);
+}
+window.addEventListener('load', () => {
+  setTimeout(hideSplash, 2000);
+});
+if (splash) {
+  splash.addEventListener('click', hideSplash);
+  splash.addEventListener('touchstart', hideSplash, { passive: true });
+}
 
-    let selectedSize = 2.0;
-    const sizeSlider = document.getElementById('sizeSlider');
-    const updateSize = () => { selectedSize = parseFloat(sizeSlider.value); };
-    sizeSlider.addEventListener('input', updateSize);
-    updateSize();
-    el.classList.add('active');
-        selectedSize = parseInt(el.dataset.size);
-      });
-    });
+let selectedSize = 2.0;
+const sizeSlider = document.getElementById('sizeSlider');
+const updateSize = () => { selectedSize = parseFloat(sizeSlider.value); };
+sizeSlider.addEventListener('input', updateSize);
+updateSize();
 
-    let lastPinAt = 0;
+let lastPinAt = 0;
     function placePin(lat, lon) {
       const now = Date.now();
       if (now - lastPinAt < 500) return;
