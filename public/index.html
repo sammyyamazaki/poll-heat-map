@@ -60,19 +60,40 @@
     .splash.hidden { opacity: 0; pointer-events: none; }
     .splash img { max-width: 220px; height: auto; }
     .splash .claim { font-size: 18px; opacity: .9; }
+  
+    /* enhanced suggest styles */
+    .address-wrap { position: relative; display: inline-block; width: 100%; max-width: var(--input-w); }
+    .address-wrap > #address { width: 100%; }
+    .suggest {
+      position: absolute; top: calc(100% + 6px); left: 0;
+      z-index: 1001; width: 100%; min-width: 100%;
+      max-width: 100%; max-height: 300px; overflow: auto;
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+    }
+    .suggest.hidden { display: none; }
+    .suggest-item { padding: 10px 12px; cursor: pointer; display: grid; gap: 2px; }
+    .suggest-item + .suggest-item { border-top: 1px solid #f1f5f9; }
+    .suggest-item:hover { background: #f8fafc; }
+    .suggest-item.active { background: #eef2ff; outline: 2px solid #e0e7ff; }
+    .suggest-item .primary { font-size: 14px; line-height: 1.2; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .suggest-item .secondary { font-size: 12px; line-height: 1.2; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #undoBtn { padding: 6px 10px; font-size: 14px; background: #f59e0b; color: #fff; border: 1px solid #b45309; border-radius: 4px; cursor: pointer; }
+    #undoBtn:hover { filter: brightness(0.95); }
+    .splash.hidden { opacity: 0; pointer-events: none; }
   </style>
 </head>
 <body>
   <div class="control-box">
-    <input id="address" type="text" placeholder="Adresse..." autocomplete="off" />
-    <button id="searchBtn">Senden</button>
-    <div class="circle-choice-group" id="sizeSelector">
-      <div class="circle-choice" data-size="1" title="Klein"></div>
-      <div class="circle-choice active" data-size="2" title="Mittel"></div>
-      <div class="circle-choice" data-size="3" title="Groß"></div>
-    </div>
+  <input type="range" id="sizeSlider" min="1" max="5" step="0.1" value="2" aria-label="Größe des Einflusses" />
+  <div class="address-wrap">
+    <input id="address" type="text" placeholder="Adresse suchen…" autocomplete="off" />
+    <div id="suggest" class="suggest hidden" role="listbox" aria-label="Adressvorschläge"></div>
   </div>
-  <div id="map"></div>
+  <button id="searchBtn">Senden</button>
+  <button id="undoBtn" title="Letzten Punkt zurücknehmen">Undo</button>
+</div>
+<div id="map"></div>
   <div id="suggest" class="suggest hidden"></div>
   <div id="splash" class="splash">
     <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
@@ -97,16 +118,13 @@
     splash.addEventListener('click', hideSplash);
     splash.addEventListener('touchstart', hideSplash, { passive: true });
 
-    let selectedSize = 2;
-    document.querySelectorAll('.circle-choice').forEach(el => {
-      el.addEventListener('click', () => {
-        document.querySelectorAll('.circle-choice').forEach(c => c.classList.remove('active'));
-        el.classList.add('active');
-        selectedSize = parseInt(el.dataset.size);
-      });
-    });
+    let selectedSize = 2.0;
+const sizeSlider = document.getElementById('sizeSlider');
+const updateSize = () => { selectedSize = parseFloat(sizeSlider.value); };
+sizeSlider.addEventListener('input', updateSize);
+updateSize();
 
-    let lastPinAt = 0;
+let lastPinAt = 0;
     function placePin(lat, lon) {
       const now = Date.now();
       if (now - lastPinAt < 500) return;
@@ -120,7 +138,7 @@
     document.getElementById('searchBtn').onclick = async () => {
       const q = document.getElementById('address').value.trim();
       if (!q) return;
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(q)}&limit=8`;
       const res = await fetch(url, { headers: { 'Accept-Language': 'de' }});
       const data = await res.json();
       if (data.length > 0) {
@@ -132,6 +150,27 @@
 
     const suggestBox = document.getElementById('suggest');
     let suggestTimer = null;
+    let suggestController = null;
+    let suggestActiveIndex = -1;
+    function hideSuggest(){
+      if (suggestTimer) { clearTimeout(suggestTimer); suggestTimer = null; }
+      if (suggestController) { try { suggestController.abort(); } catch(e){} suggestController = null; }
+      suggestBox.classList.add('hidden');
+      suggestBox.innerHTML = '';
+      const addr = document.getElementById('address');
+      if (addr) { addr.setAttribute('aria-expanded','false'); addr.setAttribute('aria-activedescendant',''); }
+    }
+    function setActiveSuggest(i){
+      const items = Array.from(suggestBox.querySelectorAll('.suggest-item'));
+      items.forEach(el => { el.classList.remove('active'); el.setAttribute('aria-selected','false'); });
+      if (items.length === 0) { suggestActiveIndex = -1; const addr = document.getElementById('address'); if (addr) addr.setAttribute('aria-activedescendant',''); return; }
+      if (i < 0) i = items.length - 1;
+      if (i >= items.length) i = 0;
+      suggestActiveIndex = i;
+      const el = items[i];
+      if (el) { el.classList.add('active'); el.setAttribute('aria-selected','true'); const addr = document.getElementById('address'); if (addr) addr.setAttribute('aria-activedescendant', el.id || ''); el.scrollIntoView({ block: 'nearest' }); }
+    }
+    let suggestTimer = null;
     document.getElementById('address').addEventListener('input', (e) => {
       const q = e.target.value.trim();
       clearTimeout(suggestTimer);
@@ -142,19 +181,30 @@
       }
       suggestTimer = setTimeout(async () => {
         try {
-          const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=0&limit=5`;
-          const res = await fetch(url, { headers: { 'Accept-Language': 'de' }});
-          const list = await res.json();
+          const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(q)}&limit=8`;
+        if (suggestController) { try { suggestController.abort(); } catch(e){} }
+        suggestController = new AbortController();
+        const res = await fetch(url, { headers: { 'Accept-Language': 'de' }, signal: suggestController.signal });
+        const list = await res.json();
+        document.getElementById('address').setAttribute('aria-expanded','true');
           if (!Array.isArray(list) || list.length === 0) {
             suggestBox.classList.add('hidden');
             suggestBox.innerHTML = '';
             return;
           }
-          suggestBox.innerHTML = list.map(item =>
-            `<div class="suggest-item" data-lat="${item.lat}" data-lon="${item.lon}">
-              ${(item.display_name || '').replace(/, Deutschland$/, '')}
-            </div>`
-          ).join('');
+          suggestBox.innerHTML = list.map((item, idx) => {
+        const a = item.address || {};
+        const road = a.road || a.pedestrian || a.footway || a.path || a.residential || a.cycleway || '';
+        const house = a.house_number || '';
+        const city = a.city || a.town || a.village || '';
+        const primary = road ? (house ? `${road} ${house}` : road) : (item.name || city || 'Ort');
+        const secondary = city;
+        const id = `suggest-opt-${idx}`;
+        return `<div class="suggest-item" id="${id}" role="option" aria-selected="false" data-lat="${item.lat}" data-lon="${item.lon}">
+                  <div class="primary">${primary}</div>
+                  <div class="secondary">${secondary}</div>
+                </div>`;
+      }).join('');
           suggestBox.classList.remove('hidden');
         } catch {
           suggestBox.classList.add('hidden');
@@ -170,12 +220,34 @@
       const lon = parseFloat(el.dataset.lon);
       map.setView([lat, lon], 14);
       placePin(lat, lon);
-      suggestBox.classList.add('hidden');
-      suggestBox.innerHTML = '';
+      hideSuggest();
       document.getElementById('address').value = '';
     });
 
-    map.on('click', e => placePin(e.latlng.lat, e.latlng.lng));
+    document.getElementById('address').addEventListener('blur', () => { setTimeout(hideSuggest, 150); });
+document.getElementById('address').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { hideSuggest(); return; }
+  if (suggestBox.classList.contains('hidden')) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); setActiveSuggest(suggestActiveIndex + 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveSuggest(suggestActiveIndex - 1); }
+  else if (e.key === 'Enter') {
+    e.preventDefault();
+    const items = Array.from(suggestBox.querySelectorAll('.suggest-item'));
+    const el = items[suggestActiveIndex] || items[0];
+    if (el) {
+      const lat = parseFloat(el.dataset.lat);
+      const lon = parseFloat(el.dataset.lon);
+      map.setView([lat, lon], 14);
+      placePin(lat, lon);
+      hideSuggest();
+      document.getElementById('address').value = '';
+    }
+  }
+});
+document.addEventListener('click', (e) => { const wrap = document.querySelector('.address-wrap'); if (!wrap) return; if (!wrap.contains(e.target) && !suggestBox.contains(e.target)) hideSuggest(); });
+map.on('click', e => placePin(e.latlng.lat, e.latlng.lng));
+
+    document.getElementById('undoBtn').addEventListener('click', () => { socket.emit('undo'); });
 
     socket.on('pinRejected', ({ reason }) => {
       if (reason === 'too_fast') console.warn('Bitte kurz warten (Entprellung).');
