@@ -139,33 +139,38 @@
     background-color: darkorange;
   }
   
-/* Buttons: Senden + Undo nebeneinander, 60/40, nicht breiter als das Suchfeld */
+/* Kombinierte Senden/Undo Buttons */
 .button-row {
   display: flex;
-  gap: 8px;
   width: min(100%, var(--input-w, 520px));
+  margin-top: 8px;
 }
-.button-row #searchBtn, .button-row #undoBtn {
+.button-row .send-btn,
+.button-row .undo-btn {
   height: 42px;
   border: none;
-  border-radius: 8px;
   color: #fff;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-size: 16px;
 }
-.button-row #searchBtn {
+.button-row .send-btn {
   flex: 3 1 60%;
+  background-color: #4CAF50;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
 }
-.button-row #undoBtn {
+.button-row .undo-btn {
   flex: 2 1 40%;
   background-color: orange;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  font-size: 18px;
 }
-.button-row #undoBtn:hover { background-color: darkorange; }
-/* Fallback-Farben für 'Senden', falls nichts gesetzt ist */
-.button-row #searchBtn { background-color: var(--send-bg, #22c55e); }
-.button-row #searchBtn:hover { filter: brightness(0.95); }
+.button-row .send-btn:hover { background-color: #45a049; }
+.button-row .undo-btn:hover { background-color: darkorange; }
 
 </style>
 
@@ -226,8 +231,11 @@
     <input id="address" type="text" placeholder="Adresse suchen…" autocomplete="off" />
     <div id="suggest" class="suggest hidden"></div>
   </div>
-  <div class="button-row"><button id="searchBtn">Senden</button>
-<button id="undoBtn" title="Letzte Aktion rückgängig"><i class="fas fa-rotate-left"></i></button></div>
+  
+<div class="button-row">
+  <button id="searchBtn" class="send-btn">Senden</button>
+  <button id="undoBtn" class="undo-btn" title="Letzte Aktion rückgängig"><i class="fas fa-rotate-left"></i></button>
+</div>
       
 </div>
 <div id="map"></div>
