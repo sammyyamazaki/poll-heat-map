@@ -115,9 +115,29 @@
     .suggest-item .primary { font-size: 14px; line-height: 1.2; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .suggest-item .secondary { font-size: 12px; line-height: 1.2; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   
-    #undoBtn { padding: 6px 10px; font-size: 14px; background: #f59e0b; color: #fff;
-      border: 1px solid #b45309; border-radius: 4px; cursor: pointer; }
-    #undoBtn:hover { filter: brightness(0.95); }
+    
+  /* Undo floating button (bottom-right, orange) */
+  #undoBtn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: orange;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+      #undoBtn:hover {
+    background-color: darkorange;
+  }
   </style>
 
 <style>
@@ -143,6 +163,32 @@
   }
 </style>
 
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+  #undoBtn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: orange;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+  #undoBtn:hover {
+    background-color: darkorange;
+  }
+</style>
+
 </head>
 <body>
   <div class="control-box">
@@ -152,7 +198,7 @@
     <div id="suggest" class="suggest hidden"></div>
   </div>
   <button id="searchBtn">Senden</button>
-      <button id="undoBtn" title="Letzten Punkt zurücknehmen">Undo</button>
+      <button id="undoBtn" title="Letzte Aktion rückgängig"><i class="fas fa-rotate-left"></i></button>
 </div>
 <div id="map"></div>
 <div id="splash" class="splash">
