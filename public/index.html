@@ -60,21 +60,38 @@
     .splash.hidden { opacity: 0; pointer-events: none; }
     .splash img { max-width: 220px; height: auto; }
     .splash .claim { font-size: 18px; opacity: .9; }
+  
+    .size-wrap { display:flex; align-items:center; gap:10px; }
+    #sizeSlider { width: 200px; }
+    .size-label { font-size: 14px; color: #111; min-width: 80px; }
+    .address-wrap { position: relative; width: var(--input-w); max-width: var(--input-w); }
+    .address-wrap > #address { width: 100%; }
+    .suggest {
+      position: absolute; top: calc(100% + 6px); left: 0;
+      z-index: 1001; width: 100%; max-height: 260px; overflow: auto; background: #fff;
+      border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    }
+    .suggest-item { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+    .suggest-item:last-child { border-bottom: 0; }
+    .suggest-item:hover { background: #f9fafb; }
+
   </style>
 </head>
 <body>
-  <div class="control-box">
+  <div class="control-box">\n
+    <div class="size-wrap">
+      <label for="sizeSlider" class="size-label">Größe</label>
+      <input type="range" id="sizeSlider" min="1" max="5" step="0.1" value="2" />
+    </div>
+
     <input id="address" type="text" placeholder="Adresse..." autocomplete="off" />
     <button id="searchBtn">Senden</button>
-    <div class="circle-choice-group" id="sizeSelector">
-      <div class="circle-choice" data-size="1" title="Klein"></div>
-      <div class="circle-choice active" data-size="2" title="Mittel"></div>
+<div class="circle-choice active" data-size="2" title="Mittel"></div>
       <div class="circle-choice" data-size="3" title="Groß"></div>
     </div>
   </div>
   <div id="map"></div>
-  <div id="suggest" class="suggest hidden"></div>
-  <div id="splash" class="splash">
+<div id="splash" class="splash">
     <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
     <div class="claim">Los geht's!</div>
   </div>
@@ -97,11 +114,12 @@
     splash.addEventListener('click', hideSplash);
     splash.addEventListener('touchstart', hideSplash, { passive: true });
 
-    let selectedSize = 2;
-    document.querySelectorAll('.circle-choice').forEach(el => {
-      el.addEventListener('click', () => {
-        document.querySelectorAll('.circle-choice').forEach(c => c.classList.remove('active'));
-        el.classList.add('active');
+    let selectedSize = 2.0;
+    const sizeSlider = document.getElementById('sizeSlider');
+    const updateSize = () => { selectedSize = parseFloat(sizeSlider.value); };
+    sizeSlider.addEventListener('input', updateSize);
+    updateSize();
+    el.classList.add('active');
         selectedSize = parseInt(el.dataset.size);
       });
     });

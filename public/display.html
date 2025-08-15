@@ -209,7 +209,7 @@
     const HEAT_BASE_METERS = 420;
     const HEAT_BLUR_RATIO = 0.55;
     const HEAT_MIN_PX = 18, HEAT_MAX_PX = 60;
-    const sizeWeight = {1: 1.0, 2: 1.8, 3: 2.8};
+    function weightForSize(s){ s = Math.max(1, Math.min(5, parseFloat(s||2))); const k = 0.5; return Math.min(5, Math.exp(k*(s-1))); }
     let intensityFactor = 1.5;
 
     const heat = L.heatLayer([], {
@@ -229,12 +229,12 @@
       heat.setOptions({ radius: rPx, blur: Math.round(rPx * HEAT_BLUR_RATIO) });
     }
     function recomputeHeatPoints() {
-      const pts = pins.map(p => [p.lat, p.lon, (sizeWeight[p.size] || 1) * intensityFactor]);
+      const pts = pins.map(p => [p.lat, p.lon, weightForSize(p.size) * intensityFactor]);
       heat.setLatLngs(pts);
     }
 
     function pinToMarker(p) {
-      const s = Math.max(1, Math.min(5, p.size || 2));
+      const s = Math.max(1, Math.min(5, parseFloat(p.size || 2)));
       const px = s * 6;
       return L.marker([p.lat, p.lon], {
         icon: L.divIcon({
