@@ -209,7 +209,7 @@ let lastPinAt = 0;
             const road = a.road || a.pedestrian || a.footway || a.path || a.residential || a.cycleway || '';
             const house = a.house_number || '';
             const city = a.city || a.town || a.village || '';
-            const primary = road ? (house ? `${road}, ${house}` : road) : (item.name || city || 'Ort');
+            const primary = road ? (house ? `${road} ${house}` : road) : (item.name || city || 'Ort');
             const secondary = city;
             return `<div class="suggest-item" data-lat="${item.lat}" data-lon="${item.lon}">
                       <div class="primary">${primary}</div>
