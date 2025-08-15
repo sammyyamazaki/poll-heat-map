@@ -301,6 +301,8 @@
 
     socket.on('init', (arr) => { arr.forEach(p => pins.push(p)); renderAll(); });
     socket.on('pinAdded', addPin);
+    socket.on('pinUpdated', (p) => { const i = pins.findIndex(x => x.id === p.id); if (i>=0){ pins[i]=p; recomputeHeatPoints(); updateCount(); if (document.getElementById('autoFitToggle')?.checked) fitToPins(); } });
+    socket.on('pinRemoved', (id) => { const i = pins.findIndex(x => x.id === id); if (i>=0){ pins.splice(i,1); recomputeHeatPoints(); clusters.clearLayers(); pins.forEach(pp => clusters.addLayer(pinToMarker(pp))); updateCount(); if (document.getElementById('autoFitToggle')?.checked) fitToPins(); } });
     socket.on('reset', () => { pins.length = 0; heat.setLatLngs([]); clusters.clearLayers(); updateCount(); updateHeatRadius(); });
 
     document.getElementById('intensity').addEventListener('input', (e) => {
