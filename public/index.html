@@ -75,6 +75,23 @@
     .suggest-item:last-child { border-bottom: 0; }
     .suggest-item:hover { background: #f9fafb; }
 
+  
+    /* enhanced suggest styles */
+    .address-wrap { position: relative; display: inline-block; width: 100%; max-width: var(--input-w); }
+    .address-wrap > #address { width: 100%; }
+    .suggest {
+      position: absolute; top: calc(100% + 6px); left: 0;
+      z-index: 1001; width: 100%; min-width: 100%;
+      max-width: calc(100vw - 20px); max-height: 300px; overflow: auto;
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+    }
+    .suggest.hidden { display: none; }
+    .suggest-item { padding: 10px 12px; cursor: pointer; display: grid; gap: 2px; }
+    .suggest-item + .suggest-item { border-top: 1px solid #f1f5f9; }
+    .suggest-item:hover { background: #f8fafc; }
+    .suggest-item .primary { font-size: 14px; line-height: 1.2; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .suggest-item .secondary { font-size: 12px; line-height: 1.2; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   </style>
 </head>
 <body>
@@ -135,7 +152,7 @@ let lastPinAt = 0;
     document.getElementById('searchBtn').onclick = async () => {
       const q = document.getElementById('address').value.trim();
       if (!q) return;
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(q)}&limit=8`;
       const res = await fetch(url, { headers: { 'Accept-Language': 'de' }});
       const data = await res.json();
       if (data.length > 0) {
