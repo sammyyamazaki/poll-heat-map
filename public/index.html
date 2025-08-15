@@ -140,11 +140,32 @@
   }
   </style>
 
+<style>
+  #undoBtn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: #fff;
+    border: 2px solid #ccc;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+  #undoBtn:hover {
+    background-color: #f0f0f0;
+  }
+</style>
+
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-
 <style>
-  /* Floating Undo button, fixed bottom-right; below splash (z-index 2000) */
   #undoBtn {
     position: fixed;
     bottom: 20px;
@@ -153,17 +174,19 @@
     color: white;
     border: none;
     border-radius: 50%;
-    width: 56px;
-    height: 56px;
+    width: 50px;
+    height: 50px;
     font-size: 22px;
     cursor: pointer;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1500;
+    z-index: 9999;
   }
-  #undoBtn:hover { background-color: darkorange; }
+  #undoBtn:hover {
+    background-color: darkorange;
+  }
 </style>
 
 </head>
@@ -175,7 +198,7 @@
     <div id="suggest" class="suggest hidden"></div>
   </div>
   <button id="searchBtn">Senden</button>
-      
+      <button id="undoBtn" title="Letzte Aktion rückgängig"><i class="fas fa-rotate-left"></i></button>
 </div>
 <div id="map"></div>
 <div id="splash" class="splash">
@@ -318,6 +341,43 @@ suggestBox.classList.add('hidden');
       else if (reason === 'rate_limit') alert('Zu viele Einträge in kurzer Zeit. Bitte kurz warten.');
     });
   </script>
-  <button id="undoBtn" title="Letzte Aktion rückgängig"><i class="fas fa-rotate-left"></i></button>
+
+<script>
+(function(){
+  function mountFloatingUndo(){
+    try{
+      var btn = document.getElementById('undoBtn');
+      if(!btn) return;
+      if (btn.parentElement !== document.body) {
+        document.body.appendChild(btn);
+      }
+      var s = btn.style;
+      s.position = 'fixed';
+      s.bottom = '20px';
+      s.right = '20px';
+      s.border = 'none';
+      s.borderRadius = '50%';
+      s.width = '56px';
+      s.height = '56px';
+      s.display = 'flex';
+      s.alignItems = 'center';
+      s.justifyContent = 'center';
+      s.boxShadow = '0 6px 16px rgba(0,0,0,0.25)';
+      s.backgroundColor = 'orange';
+      s.color = 'white';
+      s.cursor = 'pointer';
+      s.zIndex = 1500;
+      btn.addEventListener('mouseenter', function(){ btn.style.backgroundColor = 'darkorange'; });
+      btn.addEventListener('mouseleave', function(){ btn.style.backgroundColor = 'orange'; });
+    }catch(e){}
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mountFloatingUndo);
+  } else {
+    mountFloatingUndo();
+  }
+})();
+</script>
+
 </body>
 </html>
