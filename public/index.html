@@ -157,6 +157,23 @@
 .button-row .undo-btn:hover{ background:#ea8a04; }
 .button-row .undo-btn i{ pointer-events:none; }
 
+
+/* --- Stack-Fix: Slider über dem Suchfeld (auch auf Desktop) --- */
+.control-box, .controls {
+  display: flex;
+  flex-direction: column !important;  /* Elemente immer untereinander */
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+/* Breite an das Suchfeld koppeln und zentrieren */
+#sizeSlider, #address, .button-row {
+  display: block;
+  width: min(100%, var(--input-w, 520px));
+  margin-left: auto;
+  margin-right: auto;
+}
+
 </style>
 
 <style>
@@ -181,7 +198,7 @@
   </div>
   <div class="button-row">
   <button id="searchBtn" class="send-btn">PUNKT SETZEN</button>
-  <button id="undoBtn" title="Letzte Aktion rückgängig" class="undo-btn"><i class="fas fa-rotate-left" fas fa-rotate-left></i></button>
+  <button id="undoBtn" title="Letzte Aktion rückgängig"><i class="undo-btn fas fa-rotate-left"></i></button>
 </div>
       
 </div>
