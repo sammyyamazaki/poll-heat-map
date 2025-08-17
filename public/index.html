@@ -117,113 +117,58 @@
   
     
   /* Undo floating button (bottom-right, orange) */
-  #undoBtn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background-color: orange;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 56px;
-    height: 56px;
-    font-size: 22px;
-    cursor: pointer;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-  }
-      #undoBtn:hover {
-    background-color: darkorange;
-  }
   
-/* Button-Zeile: bündig mit Suchfeld, gleiche Höhe; links Senden (grün, 60%), rechts Undo (orange, 40%) */
+      
+  
+/* UI: Buttons (PUNKT SETZEN / Undo) mit Abstand und runden Ecken */
 .button-row{
   display:flex;
+  gap:10px; /* Abstand zwischen Buttons */
   width:min(100%, var(--input-w, 520px));
-  margin-top:10px;
+  margin:10px auto 0 auto;
 }
 .button-row .send-btn,
 .button-row .undo-btn{
-  height:48px;
+  height:52px;
   border:none;
   color:#fff;
   cursor:pointer;
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  font-weight:700;
-  letter-spacing:0.5px;
+  font-weight:800;
+  letter-spacing:0.6px;
   line-height:1;
+  user-select:none;
+  transition:filter .15s ease, background-color .15s ease;
+  border-radius:14px; /* rundum abgerundet */
 }
 .button-row .send-btn{
-  flex:3 1 60%;
-  background:#22c55e;
-  border-top-left-radius:12px;
-  border-bottom-left-radius:12px;
-  font-size:18px; /* SENDEN etwas größer */
+  flex:4 1 80%;   /* deutlich breiter */
+  background:#000000; /* schwarz */
+  font-size:18px;
 }
 .button-row .undo-btn{
-  flex:2 1 40%;
-  background:orange;
-  border-top-right-radius:12px;
-  border-bottom-right-radius:12px;
-  font-size:20px; /* Icon optisch passend groß */
+  flex:1 1 20%;   /* schmaler */
+  background:#f59e0b; /* orange */
+  font-size:20px;      /* Icon etwas größer */
 }
-.button-row .send-btn:hover{ filter:brightness(0.95); }
-.button-row .undo-btn:hover{ background:darkorange; }
+.button-row .send-btn:hover{ background:#333333; }
+.button-row .undo-btn:hover{ background:#ea8a04; }
+.button-row .undo-btn i{ pointer-events:none; }
 
 </style>
 
 <style>
-  #undoBtn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background-color: #fff;
-    border: 2px solid #ccc;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    font-size: 24px;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-  }
-  #undoBtn:hover {
-    background-color: #f0f0f0;
-  }
+  
+  
 </style>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
-  #undoBtn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background-color: orange;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    font-size: 22px;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-  }
-  #undoBtn:hover {
-    background-color: darkorange;
-  }
+  
+  
 </style>
 
 </head>
@@ -235,7 +180,7 @@
     <div id="suggest" class="suggest hidden"></div>
   </div>
   <div class="button-row">
-  <button id="searchBtn" class="send-btn">SENDEN</button>
+  <button id="searchBtn" class="send-btn">PUNKT SETZEN</button>
   <button id="undoBtn" title="Letzte Aktion rückgängig"><i class="undo-btn fas fa-rotate-left"></i></button>
 </div>
       
