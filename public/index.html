@@ -1,330 +1,80 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Einfluss markieren</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Heatmap Projekt</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    :root { --input-w: 200px; }
-    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
-    #map { height: 100%; }
-    .control-box {
-      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-      z-index: 1000; background: #f0f0f0; padding: 10px 14px; border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3); display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    body {
+      font-family: sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
     }
-    #address {
-      width: var(--input-w); max-width: var(--input-w); box-sizing: border-box;
-      padding: 6px; font-size: 14px; background: #fff;
-      border: 1px solid #bbb; border-radius: 4px; -webkit-appearance: none; appearance: none;
+    .ui-box {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 400px;
+    }
+    input {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+      width: 100%;
+    }
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
     }
     #searchBtn {
-      padding: 6px 10px; font-size: 14px; background: #333; color: #fff;
-      border: 1px solid #444; border-radius: 4px; cursor: pointer;
+      all: unset;
+      background: #222;
+      color: white;
+      text-align: center;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      flex: 4;
+      height: 48px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
-    #searchBtn:hover { background: #555; }
-    .circle-choice-group { display: flex; gap: 10px; align-items: center; }
-    .circle-choice {
-      display: flex; align-items: center; justify-content: center;
-      border: 3px solid #ccc; background-color: #ddd; cursor: pointer;
-      transition: 0.2s; border-radius: 50%;
+    #undoBtn {
+      all: unset;
+      background: orange;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      flex: 1;
+      height: 48px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.4rem;
     }
-    .circle-choice.active { border-color: #ff5555; background-color: #d44; }
-    .circle-choice[data-size="1"] { width: 22px; height: 22px; }
-    .circle-choice[data-size="2"] { width: 36px; height: 36px; }
-    .circle-choice[data-size="3"] { width: 58px; height: 58px; }
-
-    @media (max-width: 600px) {
-      :root { --input-w: 100%; }
-      .control-box { flex-direction: column; align-items: stretch; }
-      #searchBtn { width: 100%; }
-      .circle-choice-group { justify-content: center; }
+    #undoBtn i {
+      pointer-events: none;
     }
-
-    /* Suggestions aligned to input width */
-    .suggest {
-      position: absolute; top: calc(100% + 6px); left: 0;
-      z-index: 1001;
-      width: 100%;
-      min-width: 100%;
-      max-width: 100%;
-      max-height: 300px;
-      overflow: auto;
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.18);
-    }
-    .suggest.hidden { display: none; }
-    .suggest-item { padding: 8px 10px; cursor: pointer; }
-    .suggest-item:hover { background: #f3f4f6; }
-
-    .splash {
-      position: fixed; inset: 0; background: #000; color: #fff;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; z-index: 2000; opacity: 1; transition: opacity .5s ease;
-    }
-    .splash.hidden { opacity: 0; pointer-events: none; }
-    .splash img { max-width: 220px; height: auto; }
-    .splash .claim { font-size: 18px; opacity: .9; }
-  
-    .size-wrap { display:flex; align-items:center; gap:10px; }
-    #sizeSlider { width: 200px; }
-    .size-label { font-size: 14px; color: #111; min-width: 80px; }
-    .address-wrap { position: relative; width: var(--input-w); max-width: var(--input-w); }
-    .address-wrap > #address { width: 100%; }
-    .suggest {
-      position: absolute; top: calc(100% + 6px); left: 0;
-      z-index: 1001;
-      width: 100%;
-      min-width: 100%;
-      max-width: 100%;
-      max-height: 300px;
-      overflow: auto;
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.18);
-    }
-    .suggest-item { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
-    .suggest-item:last-child { border-bottom: 0; }
-    .suggest-item:hover { background: #f9fafb; }
-
-  
-    /* enhanced suggest styles */
-    .address-wrap { position: relative; display: inline-block; width: 100%; max-width: var(--input-w); }
-    .address-wrap > #address { width: 100%; }
-    .suggest {
-      position: absolute; top: calc(100% + 6px); left: 0;
-      z-index: 1001;
-      width: 100%;
-      min-width: 100%;
-      max-width: 100%;
-      max-height: 300px;
-      overflow: auto;
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.18);
-    }
-    .suggest.hidden { display: none; }
-    .suggest-item { padding: 10px 12px; cursor: pointer; display: grid; gap: 2px; }
-    .suggest-item + .suggest-item { border-top: 1px solid #f1f5f9; }
-    .suggest-item:hover { background: #f8fafc; }
-    .suggest-item .primary { font-size: 14px; line-height: 1.2; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .suggest-item .secondary { font-size: 12px; line-height: 1.2; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  
-    
-  /* Undo floating button (bottom-right, orange) */
-  
-      
-  
-/* UI: Buttons (PUNKT SETZEN / Undo) mit Abstand und runden Ecken */
-.button-row{
-  display:flex;
-  gap:10px; /* Abstand zwischen Buttons */
-  width:min(100%, var(--input-w, 520px));
-  margin:10px auto 0 auto;
-}
-.button-row .send-btn,
-.button-row .undo-btn{
-  height:52px;
-  border:none;
-  color:#fff;
-  cursor:pointer;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:800;
-  letter-spacing:0.6px;
-  line-height:1;
-  user-select:none;
-  transition:filter .15s ease, background-color .15s ease;
-  border-radius:14px; /* rundum abgerundet */
-}
-.button-row .send-btn{
-  flex:4 1 80%;   /* deutlich breiter */
-  background:#000000; /* schwarz */
-  font-size:18px;
-}
-.button-row .undo-btn{
-  flex:1 1 20%;   /* schmaler */
-  background:#f59e0b; /* orange */
-  font-size:20px;      /* Icon etwas größer */
-}
-.button-row .send-btn:hover{ background:#333333; }
-.button-row .undo-btn:hover{ background:#ea8a04; }
-.button-row .undo-btn i{ pointer-events:none; }
-
-</style>
-
-<style>
-  
-  
-</style>
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-<style>
-  
-  
-</style>
-
+  </style>
 </head>
 <body>
-  <div class="control-box">
-  <input type="range" id="sizeSlider" min="1" max="5" step="0.1" value="2" aria-label="Größe des Einflusses" />
-  <div class="address-wrap">
-    <input id="address" type="text" placeholder="Adresse suchen…" autocomplete="off" />
-    <div id="suggest" class="suggest hidden"></div>
+  <div class="ui-box">
+    <input type="text" placeholder="Adresse suchen..." />
+    <div class="btn-row">
+      <button id="searchBtn">PUNKT SETZEN</button>
+      <button id="undoBtn"><i class="fas fa-undo"></i></button>
+    </div>
   </div>
-  <div class="button-row">
-  <button id="searchBtn" class="send-btn">PUNKT SETZEN</button>
-  <button id="undoBtn" title="Letzte Aktion rückgängig"><i class="undo-btn fas fa-rotate-left"></i></button>
-</div>
-      
-</div>
-<div id="map"></div>
-<div id="splash" class="splash">
-    <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
-    <div class="claim">Los geht's!</div>
-  </div>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    const socket = io();
-    const map = L.map('map').setView([51.4566, 7.0123], 12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap & CARTO', subdomains: 'abcd', maxZoom: 19
-    }).addTo(map);
-
-    const splash = document.getElementById('splash');
-function hideSplash() {
-  if (!splash) return;
-  splash.classList.add('hidden');
-  setTimeout(() => splash.remove(), 600);
-}
-window.addEventListener('load', () => {
-  setTimeout(hideSplash, 2000);
-});
-if (splash) {
-  splash.addEventListener('click', hideSplash);
-  splash.addEventListener('touchstart', hideSplash, { passive: true });
-}
-
-let selectedSize = 2.0;
-const sizeSlider = document.getElementById('sizeSlider');
-const updateSize = () => { selectedSize = parseFloat(sizeSlider.value); };
-sizeSlider.addEventListener('input', updateSize);
-updateSize();
-
-let lastPinAt = 0;
-    // Track markers placed by this client so Undo can remove them locally
-    const localMarkers = [];
-    function placePin(lat, lon) {
-      const now = Date.now();
-      if (now - lastPinAt < 500) return;
-      lastPinAt = now;
-      socket.emit('newPin', { lat, lon, size: selectedSize });
-      const m = L.circleMarker([lat, lon], {
-        radius: selectedSize * 5, color: 'red', fillColor: '#f88', fillOpacity: 0.5, weight: 2
-      }).addTo(map);
-      localMarkers.push(m);
-    }
-
-    document.getElementById('undoBtn').addEventListener('click', () => {
-      socket.emit('undo');
-      const m = localMarkers.pop();
-      if (m) { try { m.remove(); } catch(e){} }
-    });
-document.getElementById('searchBtn').onclick = async () => {
-      const q = document.getElementById('address').value.trim();
-      if (!q) return;
-      const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(q)}&limit=8`;
-      const res = await fetch(url, { headers: { 'Accept-Language': 'de' }});
-      const data = await res.json();
-      if (data.length > 0) {
-        const { lat, lon } = data[0];
-        map.setView([+lat, +lon], 14);
-        placePin(+lat, +lon);
-      }
-    };
-
-    const suggestBox = document.getElementById('suggest');
-    let suggestTimer = null;
-    let suggestController = null;
-    function hideSuggest(){
-      if (suggestTimer) { clearTimeout(suggestTimer); suggestTimer = null; }
-      if (suggestController) { try { suggestController.abort(); } catch {} suggestController = null; }
-      suggestBox.classList.add('hidden');
-      suggestBox.innerHTML = '';
-    }
-    document.getElementById('address').addEventListener('input', (e) => {
-      const q = e.target.value.trim();
-      clearTimeout(suggestTimer);
-      if (!q) {
-        suggestBox.classList.add('hidden');
-        suggestBox.innerHTML = '';
-        return;
-      }
-      suggestTimer = setTimeout(async () => {
-        try {
-          const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=8`;
-          const res = await fetch(url, { headers: { 'Accept-Language': 'de' }});
-          const list = await res.json();
-          if (!Array.isArray(list) || list.length === 0) {
-            suggestBox.classList.add('hidden');
-            suggestBox.innerHTML = '';
-            return;
-          }
-          suggestBox.innerHTML = list.map(item => {
-            const a = item.address || {};
-            const road = a.road || a.pedestrian || a.footway || a.path || a.residential || a.cycleway || '';
-            const house = a.house_number || '';
-            const city = a.city || a.town || a.village || '';
-            const primary = road ? (house ? `${road} ${house}` : road) : (item.name || city || 'Ort');
-            const secondary = city;
-            return `<div class="suggest-item" data-lat="${item.lat}" data-lon="${item.lon}">
-                      <div class="primary">${primary}</div>
-                      <div class="secondary">${secondary}</div>
-                    </div>`;
-          }).join('');
-          suggestBox.classList.remove('hidden');
-        } catch {
-          suggestBox.classList.add('hidden');
-          suggestBox.innerHTML = '';
-        }
-      }, 300);
-    });
-
-    suggestBox.addEventListener('click', (e) => {
-      const el = e.target.closest('.suggest-item');
-      if (!el) return;
-      const lat = parseFloat(el.dataset.lat);
-      const lon = parseFloat(el.dataset.lon);
-      map.setView([lat, lon], 14);
-      placePin(lat, lon);
-      // Always hide and clear suggestions after selection
-      suggestBox.innerHTML = '';
-      suggestBox.classList.add('hidden');
-      document.getElementById('address').value = '';
-suggestBox.classList.add('hidden');
-      suggestBox.innerHTML = '';
-      document.getElementById('address').value = '';
-    });
-
-    document.getElementById('address').addEventListener('blur', () => { setTimeout(hideSuggest, 150); });
-    document.getElementById('address').addEventListener('keydown', (e) => { if (e.key === 'Escape') hideSuggest(); });
-    document.addEventListener('click', (e) => { const wrap = document.querySelector('.address-wrap'); if (!wrap) return; if (!wrap.contains(e.target) && !suggestBox.contains(e.target)) hideSuggest(); });
-
-    map.on('click', e => placePin(e.latlng.lat, e.latlng.lng));
-
-    socket.on('pinRejected', ({ reason }) => {
-      if (reason === 'too_fast') console.warn('Bitte kurz warten (Entprellung).');
-      else if (reason === 'rate_limit') alert('Zu viele Einträge in kurzer Zeit. Bitte kurz warten.');
-    });
-  </script>
 </body>
 </html>
