@@ -158,20 +158,55 @@
 .button-row .undo-btn i{ pointer-events:none; }
 
 
-/* --- Stack-Fix: Slider über dem Suchfeld (auch auf Desktop) --- */
-.control-box, .controls {
-  display: flex;
-  flex-direction: column !important;  /* Elemente immer untereinander */
-  align-items: center;
-  gap: 12px;
-  width: 100%;
+/* --- UI Row Fix: Buttons nebeneinander (mobil & desktop), kein Wrapping, runde Ecken --- */
+.button-row{
+  display:flex;
+  flex-wrap:nowrap;             /* verhindert Umbrechen auf Mobil */
+  gap:10px;                     /* Abstand zwischen Buttons */
+  width:min(100%, var(--input-w, 520px));  /* gleiche Breite wie Suchfeld */
+  margin:10px auto 0 auto;      /* zentriert */
 }
-/* Breite an das Suchfeld koppeln und zentrieren */
-#sizeSlider, #address, .button-row {
-  display: block;
-  width: min(100%, var(--input-w, 520px));
-  margin-left: auto;
-  margin-right: auto;
+.button-row > *{ min-width:0; } /* erlaubt flexibles Schrumpfen statt Umbruch */
+
+#searchBtn, #undoBtn{
+  box-sizing:border-box;
+  height:52px;
+  border:none;
+  border-radius:14px;           /* rundum abgerundet */
+  color:#fff;
+  font-weight:800;
+  letter-spacing:.6px;
+  line-height:1;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  -webkit-appearance:none;
+  appearance:none;
+  transition:filter .15s ease, background-color .15s ease;
+}
+
+#searchBtn{
+  flex:4 1 80%;                 /* deutlich breiter */
+  background:#000;              /* schwarz */
+  font-size:18px;
+}
+#searchBtn:hover{ background:#333; }
+
+#undoBtn{
+  flex:1 1 20%;                 /* schmaler */
+  background:#f59e0b;           /* orange */
+  font-size:20px;               /* Icon optisch größer */
+  position: static !important;  /* überschreibt evtl. alte fixed-Styles */
+}
+#undoBtn:hover{ background:#ea8a04; }
+#undoBtn i{ pointer-events:none; } /* Icon klickt wie der Button */
+
+/* leichte Responsive-Kosmetik für sehr kleine Geräte */
+@media (max-width: 360px){
+  .button-row{ gap:8px; }
+  #searchBtn, #undoBtn{ height:48px; }
+  #searchBtn{ font-size:16px; }
 }
 
 </style>
@@ -198,7 +233,7 @@
   </div>
   <div class="button-row">
   <button id="searchBtn" class="send-btn">PUNKT SETZEN</button>
-  <button id="undoBtn" title="Letzte Aktion rückgängig"><i class="undo-btn fas fa-rotate-left"></i></button>
+  <button id="undoBtn" title="Letzte Aktion rückgängig" class="undo-btn" ><i class="fas fa-rotate-left"></i></button>
 </div>
       
 </div>
